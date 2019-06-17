@@ -3,7 +3,7 @@
 ;; Copyright (C) 2013 Brian Fransioli
 ;;
 ;; Author: Brian Fransioli <assem@terranpro.org>
-;; URL: https://github.com/terranpro/magit-gerrit
+;; URL: https://github.com/ispras/magit-gerrit
 ;; Package-Requires: ((magit "2.3.1"))
 ;;
 ;; This program is free software; you can redistribute it and/or
