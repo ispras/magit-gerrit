@@ -280,8 +280,8 @@ Succeed even if branch already exist
               (eq (process-status magit-this-process) 'run))
     (sleep-for 0.005)))
 
-(defun magit-gerrit-view-patchset-diff ()
-  "View the Diff for a Patchset"
+(defun magit-gerrit--fetch-patchset ()
+  "Download a Gerrit Review Patchset for diff viewing"
   (interactive)
   (let ((jobj (magit-gerrit-review-at-point)))
     (when jobj
@@ -293,7 +293,34 @@ Succeed even if branch already exist
           (magit-gerrit-process-wait))
         (message
          (format "Generating Gerrit Patchset for refs %s dir %s" ref dir))
-        (magit-diff-range "FETCH_HEAD~1..FETCH_HEAD")))))
+        "FETCH_HEAD~1..FETCH_HEAD"))))
+
+(defun magit-gerrit--view-patchset-impl (viewer)
+  "View selected patchset with a given viewer
+
+`VIEWER' should accept one argument: revision range"
+  (let ((revision-range (magit-gerrit--fetch-patchset)))
+    (when revision-range
+      (apply viewer (list revision-range)))))
+
+(defun magit-gerrit-view-patchset-diff ()
+  "View the Diff for a Patchset"
+  (interactive)
+  (magit-gerrit--view-patchset-impl 'magit-diff-range))
+
+(defun magit-gerrit--view-ediff (revision-range)
+  (let* ((files (magit-changed-files revision-range))
+         (first-file (car files))
+         (split-range (magit-split-range revision-range))
+         (origin (car split-range))
+         (changed (cdr split-range)))
+    ;; TODO: remove hardcode for `FIRST-FILE'
+    (magit-ediff-compare origin changed first-file first-file)))
+
+(defun magit-gerrit-view-patchset-ediff ()
+  "View the Diff for a Patchset in Ediff"
+  (interactive)
+  (magit-gerrit--view-patchset-impl 'magit-gerrit--view-ediff))
 
 (defun magit-gerrit-download-patchset ()
   "Download a Gerrit Review Patchset"
@@ -529,6 +556,7 @@ Succeed even if branch already exist
     (?V "Verify" magit-gerrit-verify-review)
     (?C "Code Review" magit-gerrit-code-review)
     (?d "View Patchset Diff" magit-gerrit-view-patchset-diff)
+    (?e "View Patchset in Ediff" magit-gerrit-view-patchset-ediff)
     (?D "Download Patchset" magit-gerrit-download-and-checkout-patchset)
     (?S "Submit Review" magit-gerrit-submit-review)
     (?B "Abandon Review" magit-gerrit-abandon-review)
