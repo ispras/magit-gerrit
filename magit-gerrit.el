@@ -308,6 +308,47 @@ Succeed even if branch already exist
   (interactive)
   (magit-gerrit--view-patchset-impl 'magit-diff-range))
 
+(defun magit-gerrit--ediff-set-bindings ()
+  ;; TODO replace with real functions
+  (define-key ediff-mode-map "N"
+    (lambda () (interactive) (message "The next file")))
+  (define-key ediff-mode-map "P"
+    (lambda () (interactive) (message "The prev file"))))
+
+(defun magit-gerrit--ediff-compare (revA revB fileA fileB)
+  "Compare REVA:FILEA with REVB:FILEB using Ediff.
+
+FILEA and FILEB have to be relative to the top directory of the
+repository.  If REVA or REVB is nil, then this stands for the
+working tree state.
+
+It is a copy-paste of `MAGIT-EDIFF-COMPARE'."
+  (magit-with-toplevel
+    (let ((conf (current-window-configuration))
+          (bufA (if revA
+                    (magit-get-revision-buffer revA fileA)
+                  (get-file-buffer fileA)))
+          (bufB (if revB
+                    (magit-get-revision-buffer revB fileB)
+                  (get-file-buffer fileB))))
+      (ediff-buffers
+       (or bufA (if revA
+                    (magit-find-file-noselect revA fileA)
+                  (find-file-noselect fileA)))
+       (or bufB (if revB
+                    (magit-find-file-noselect revB fileB)
+                  (find-file-noselect fileB)))
+       `((lambda ()
+           (setq-local
+            ediff-quit-hook
+            (lambda ()
+              ,@(unless bufA '((ediff-kill-buffer-carefully ediff-buffer-A)))
+              ,@(unless bufB '((ediff-kill-buffer-carefully ediff-buffer-B)))
+              (let ((magit-ediff-previous-winconf ,conf))
+                (run-hooks 'magit-ediff-quit-hook)))))
+         magit-gerrit--ediff-set-bindings)
+       'ediff-revision))))
+
 (defun magit-gerrit--view-ediff (revision-range)
   (let* ((files (magit-changed-files revision-range))
          (first-file (car files))
@@ -315,7 +356,7 @@ Succeed even if branch already exist
          (origin (car split-range))
          (changed (cdr split-range)))
     ;; TODO: remove hardcode for `FIRST-FILE'
-    (magit-ediff-compare origin changed first-file first-file)))
+    (magit-gerrit--ediff-compare origin changed first-file first-file)))
 
 (defun magit-gerrit-view-patchset-ediff ()
   "View the Diff for a Patchset in Ediff"
