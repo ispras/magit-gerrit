@@ -1,4 +1,4 @@
-;;; magit-gerrit.el --- Magit plugin for Gerrit Code Review
+;;; magit-gerrit.el --- Magit plugin for Gerrit  -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2013 Brian Fransioli
 ;;
