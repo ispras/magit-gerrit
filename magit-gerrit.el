@@ -1,8 +1,14 @@
 ;;; magit-gerrit.el --- Magit plugin for Gerrit  -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2013 Brian Fransioli
+;; Copyright (C) 2013-2019 Brian Fransioli
 ;;
 ;; Author: Brian Fransioli <assem@terranpro.org>
+;; Maintainer:
+;;    Valeriy Savchenko     <vsavchenko@ispras.ru>
+;;    Konstantin Sorokin    <ksorokin@ispras.ru>
+;;    Georgiy Pankratenko   <gpankratenko@ipsras.ru>
+
+;; Keywords: git tools vc gerrit
 ;; URL: https://github.com/ispras/magit-gerrit
 ;; Package-Requires: ((magit "2.3.1"))
 ;;
