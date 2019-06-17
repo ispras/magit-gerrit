@@ -310,8 +310,19 @@ Succeed even if branch already exist
           (message (format "Waiting a git fetch from %s to complete..."
                            magit-gerrit-remote))
           (magit-gerrit-process-wait))
-        (message (format "Checking out refs %s to %s in %s" ref branch dir))
-        (magit-gerrit-create-branch-force branch "FETCH_HEAD")))))
+        (message (format "Checking out refs %s to %s in %s" ref branch dir))))))
+
+(defun magit-gerrit-download-and-checkout-patchset ()
+  "Download and checkout a Gerrit Review Patchset"
+  (interactive)
+  (magit-gerrit-download-patchset)
+  (magit-gerrit-create-branch-force branch "FETCH_HEAD"))
+
+(defun magit-gerrit-cherry-pick-patchset ()
+  "Cherry-pick a Gerrit Review Patchset"
+  (interactive)
+  (magit-gerrit-download-patchset)
+  (magit--cherry-pick '("FETCH_HEAD") nil))
 
 (defun magit-gerrit-browse-review ()
   "Browse the Gerrit Review with a browser."
@@ -518,10 +529,11 @@ Succeed even if branch already exist
     (?V "Verify" magit-gerrit-verify-review)
     (?C "Code Review" magit-gerrit-code-review)
     (?d "View Patchset Diff" magit-gerrit-view-patchset-diff)
-    (?D "Download Patchset" magit-gerrit-download-patchset)
+    (?D "Download Patchset" magit-gerrit-download-and-checkout-patchset)
     (?S "Submit Review" magit-gerrit-submit-review)
     (?B "Abandon Review" magit-gerrit-abandon-review)
-    (?b "Browse Review" magit-gerrit-browse-review))
+    (?b "Browse Review" magit-gerrit-browse-review)
+    (?H "Cherry-pick Patchset" magit-gerrit-cherry-pick-patchset))
   :options '((?m "Comment" "--message " magit-gerrit-read-comment)))
 
 ;; Attach Magit Gerrit to Magit's default help popup
