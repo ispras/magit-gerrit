@@ -314,36 +314,49 @@ Succeed even if branch already exist
   (interactive)
   (magit-gerrit--view-patchset-impl 'magit-diff-range))
 
-(defun magit-gerrit--ediff-set-bindings ()
-  ;; TODO replace with real functions
-  (define-key ediff-mode-map "N"
-    (lambda () (interactive) (message "The next file")))
-  (define-key ediff-mode-map "P"
-    (lambda () (interactive) (message "The prev file"))))
+(defun magit-gerrit--ediff-set-bindings (revA revB files index)
+  (let* ((goto-index
+          (lambda (new-index)
+            ;; kill buffers A and B without bothering the user...
+            (ediff-janitor nil nil)
+            ;; ...and quit from the current ediff session
+            (ediff-cleanup-mess)
+            ;; we consider `NEW-INDEX' to be correct and create a new
+            ;; ediff session for it
+            (magit-gerrit--ediff-compare revA revB files new-index)))
+         ;; this is an actual callback generator that checks index
+         ;; boundaries and outputs the given error message if the check
+         ;; has failed
+         (command (lambda (new-index error-message)
+                    (lambda ()
+                      (interactive)
+                      (if (and (>= new-index 0) (< new-index (length files)))
+                          (funcall goto-index new-index)
+                        (message error-message))))))
 
-(defun magit-gerrit--ediff-compare (revA revB fileA fileB)
-  "Compare REVA:FILEA with REVB:FILEB using Ediff.
+    ;; TODO: get keys from the keymap
+    (define-key ediff-mode-map "N"
+      (funcall command (1+ index) "There is no next file"))
 
-FILEA and FILEB have to be relative to the top directory of the
-repository.  If REVA or REVB is nil, then this stands for the
-working tree state.
+    (define-key ediff-mode-map "P"
+      (funcall command (1- index) "There is no previous file"))))
 
-It is a copy-paste of `MAGIT-EDIFF-COMPARE'."
+(defun magit-gerrit--ediff-compare (revA revB files index)
+  "Compare REVA:FILES[INDEX] with REVB:FILES[INDEX] using Ediff.
+
+FILES have to be relative to the top directory of the
+repository.
+
+It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   (magit-with-toplevel
-    (let ((conf (current-window-configuration))
-          (bufA (if revA
-                    (magit-get-revision-buffer revA fileA)
-                  (get-file-buffer fileA)))
-          (bufB (if revB
-                    (magit-get-revision-buffer revB fileB)
-                  (get-file-buffer fileB))))
+    (let* ((conf (current-window-configuration))
+           (file (nth index files))
+           (binding-setter
+            (lambda () (magit-gerrit--ediff-set-bindings revA revB files index)))
+           (bufA (magit-find-file-noselect revA file))
+           (bufB (magit-find-file-noselect revB file)))
       (ediff-buffers
-       (or bufA (if revA
-                    (magit-find-file-noselect revA fileA)
-                  (find-file-noselect fileA)))
-       (or bufB (if revB
-                    (magit-find-file-noselect revB fileB)
-                  (find-file-noselect fileB)))
+       bufA bufB
        `((lambda ()
            (setq-local
             ediff-quit-hook
@@ -352,7 +365,7 @@ It is a copy-paste of `MAGIT-EDIFF-COMPARE'."
               ,@(unless bufB '((ediff-kill-buffer-carefully ediff-buffer-B)))
               (let ((magit-ediff-previous-winconf ,conf))
                 (run-hooks 'magit-ediff-quit-hook)))))
-         magit-gerrit--ediff-set-bindings)
+         ,binding-setter)
        'ediff-revision))))
 
 (defun magit-gerrit--view-ediff (revision-range)
@@ -361,8 +374,9 @@ It is a copy-paste of `MAGIT-EDIFF-COMPARE'."
          (split-range (magit-split-range revision-range))
          (origin (car split-range))
          (changed (cdr split-range)))
-    ;; TODO: remove hardcode for `FIRST-FILE'
-    (magit-gerrit--ediff-compare origin changed first-file first-file)))
+    ;; start with the first file of the patchset
+    ;; TODO: change to 'commit message' in the future
+    (magit-gerrit--ediff-compare origin changed files 0)))
 
 (defun magit-gerrit-view-patchset-ediff ()
   "View the Diff for a Patchset in Ediff"
