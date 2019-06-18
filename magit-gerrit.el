@@ -605,30 +605,30 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 
 (defun magit-gerrit-create-branch (branch parent))
 
-(magit-define-popup magit-gerrit-popup
-  "Popup console for magit gerrit commands."
-  'magit-gerrit
-  :actions
-  '((?P "Push Commit For Review" magit-gerrit-create-review)
-    (?W "Push Commit For Draft Review" magit-gerrit-create-draft)
-    (?p "Publish Draft Patchset" magit-gerrit-publish-draft)
-    (?k "Delete Draft" magit-gerrit-delete-draft)
-    (?A "Add Reviewer" magit-gerrit-add-reviewer)
-    (?V "Verify" magit-gerrit-verify-review)
-    (?C "Code Review" magit-gerrit-code-review)
-    (?d "View Patchset Diff" magit-gerrit-view-patchset-diff)
-    (?e "View Patchset in Ediff" magit-gerrit-view-patchset-ediff)
-    (?D "Download Patchset" magit-gerrit-download-and-checkout-patchset)
-    (?S "Submit Review" magit-gerrit-submit-review)
-    (?B "Abandon Review" magit-gerrit-abandon-review)
-    (?b "Browse Review" magit-gerrit-browse-review)
-    (?H "Cherry-pick Patchset" magit-gerrit-cherry-pick-patchset))
-  :options '((?m "Comment" "--message " magit-gerrit-read-comment)))
+(define-transient-command magit-gerrit ()
+  "Invoke a Magit Gerrit command from a list of available commands."
+  ["Actions"
+   [("P" "Push Commit For Review" magit-gerrit-create-review)
+    ("W" "Push Commit For Draft Review" magit-gerrit-create-draft)
+    ("p" "Publish Draft Patchset" magit-gerrit-publish-draft)
+    ("k" "Delete Draft" magit-gerrit-delete-draft)
+    ("A" "Add Reviewer" magit-gerrit-add-reviewer)
+    ("V" "Verify" magit-gerrit-verify-review)
+    ("C" "Code Review" magit-gerrit-code-review)]
+   [("d" "View Patchset Diff" magit-gerrit-view-patchset-diff)
+    ("e" "View Patchset in Ediff" magit-gerrit-view-patchset-ediff)
+    ("D" "Download Patchset" magit-gerrit-download-and-checkout-patchset)
+    ("S" "Submit Review" magit-gerrit-submit-review)
+    ("B" "Abandon Review" magit-gerrit-abandon-review)
+    ("b" "Browse Review" magit-gerrit-browse-review)
+    ("H" "Cherry-pick Patchset" magit-gerrit-cherry-pick-patchset)]]
+  ["Options"
+   ("m" "Comment" "--message " magit-gerrit-read-comment)])
 
 ;; Attach Magit Gerrit to Magit's default help popup
 ;; See: https://github.com/magit/magit/wiki/Converting-popup-modifications-to-transient-modifications#adding-an-action
 (transient-append-suffix 'magit-dispatch
-  "r" `(,magit-gerrit-popup-prefix "Gerrit" magit-gerrit-popup))
+  "r" `(,magit-gerrit-popup-prefix "Gerrit" magit-gerrit))
 
 (magit-define-popup magit-gerrit-copy-review-popup
   "Popup console for copy review to clipboard."
