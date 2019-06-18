@@ -97,7 +97,7 @@
 (defvar-local magit-gerrit-remote "origin"
   "Default remote name to use for gerrit (e.g. \"origin\", \"gerrit\")")
 
-(defcustom magit-gerrit-popup-prefix (kbd "R")
+(defcustom magit-gerrit-popup-prefix "R"
   "Key code to open magit-gerrit popup"
   :group 'magit-gerrit
   :type 'key-sequence)
@@ -626,9 +626,9 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   :options '((?m "Comment" "--message " magit-gerrit-read-comment)))
 
 ;; Attach Magit Gerrit to Magit's default help popup
-(magit-define-popup-action 'magit-dispatch-popup
-  (string-to-char magit-gerrit-popup-prefix) "Gerrit"
-  'magit-gerrit-popup)
+;; See: https://github.com/magit/magit/wiki/Converting-popup-modifications-to-transient-modifications#adding-an-action
+(transient-append-suffix 'magit-dispatch
+  "r" `(,magit-gerrit-popup-prefix "Gerrit" magit-gerrit-popup))
 
 (magit-define-popup magit-gerrit-copy-review-popup
   "Popup console for copy review to clipboard."
