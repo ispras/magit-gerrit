@@ -504,7 +504,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
                   (magit-gerrit-get-project)
                   "--submit"
                   args)
-  (magit-fetch-from-upstream ""))
+  (magit-fetch-from-upstream magit-gerrit-remote ""))
 
 (defun magit-gerrit-push-review (status)
   (let* ((branch (or (magit-get-current-branch)
