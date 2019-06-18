@@ -299,7 +299,7 @@ Succeed even if branch already exist
           (magit-gerrit-process-wait))
         (message
          (format "Generating Gerrit Patchset for refs %s dir %s" ref dir))
-        "FETCH_HEAD~1..FETCH_HEAD"))))
+        (magit-hash-range "FETCH_HEAD~1..FETCH_HEAD")))))
 
 (defun magit-gerrit--view-patchset-impl (viewer)
   "View selected patchset with a given viewer
