@@ -31,6 +31,12 @@
   "Face for highlighting comment region"
   :group 'magit-gerrit-group)
 
+(defface magit-gerrit-active-comment-heading-face
+  '((t :inherit magit-gerrit-comment-heading-face
+       :foreground "gray80"))
+  "Face for highlighting currently selected comment's heading"
+  :group 'magit-gerrit-group)
+
 (defface magit-gerrit-active-comment-face
   '((t :inherit magit-gerrit-comment-face
        :foreground "gray80"))
@@ -76,19 +82,32 @@ COL  is the buffer column number"
     (move-to-column (1- col))
     (point)))
 
-(defun magit-gerrit-create-comment-text-string (comment-info)
+(defun magit-gerrit-create-comment-text-string (comment-info &optional active)
   "Create comment text string with face properties.
 
-COMMENT-INFO is an instance of magit-gerrit-commentinfo"
+COMMENT-INFO is an instance of magit-gerrit-commentinfo
+ACTIVE whether to highlight text as active"
   (let ((heading (propertize
                   (format "%s %s "
                           (format-time-string magit-gerrit-comment-ts-format
                                               (oref comment-info date))
                           (oref comment-info author))
-                  'face 'magit-gerrit-comment-heading-face))
+                  'face (if active
+                            'magit-gerrit-active-comment-heading-face
+                          'magit-gerrit-comment-heading-face)))
         (content (propertize (oref comment-info message)
-                             'face 'magit-gerrit-comment-face)))
+                             'face (if active
+                                       'magit-gerrit-active-comment-face
+                                     'magit-gerrit-comment-face))))
     (format "\n%s\n\n%s\n" heading content)))
+
+(defun magit-gerrit-toggle-comment-overlay-active (ov active)
+  "Toggle the active state of the given comment overlay OV.
+
+ACTIVE if non-nil make the given comment overlay active"
+  (overlay-put ov 'after-string
+               (magit-gerrit-create-comment-text-string
+                (overlay-get ov 'comment-info) active)))
 
 (defconst magit-gerrit-maxpriority 1000
   "Maximum prioity value for magit-gerrit comment overlays.")
@@ -154,6 +173,9 @@ COMMENT-INFO is an instance of magit-gerrit--commentinfo"
 
     ;; Add range-overlay as a child property
     (overlay-put comment-text-ov 'range-overlay range-ov)
+    ;; Add comment-info as a property to the corresponding comment overlay
+    ;; for possible references.
+    (overlay-put comment-text-ov 'comment-info comment-info)
     comment-text-ov))
 
 (defun magit-gerrit-create-overlays (comments)
