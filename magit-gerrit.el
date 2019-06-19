@@ -311,9 +311,9 @@ Succeed even if branch already exist
     (when revision-range
       (apply viewer (list revision-range)))))
 
-(defun magit-gerrit-view-patchset-diff ()
+(define-suffix-command magit-gerrit-view-patchset-diff (args)
   "View the Diff for a Patchset"
-  (interactive)
+  (interactive (list (magit-gerrit-view-arguments)))
   (magit-gerrit--view-patchset-impl 'magit-diff-range))
 
 (defun magit-gerrit--ediff-set-bindings (revA revB files index)
@@ -372,7 +372,6 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 
 (defun magit-gerrit--view-ediff (revision-range)
   (let* ((files (magit-changed-files revision-range))
-         (first-file (car files))
          (split-range (magit-split-range revision-range))
          (origin (car split-range))
          (changed (cdr split-range)))
@@ -380,9 +379,9 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     ;; TODO: change to 'commit message' in the future
     (magit-gerrit--ediff-compare origin changed files 0)))
 
-(defun magit-gerrit-view-patchset-ediff ()
+(define-suffix-command magit-gerrit-view-patchset-ediff (args)
   "View the Diff for a Patchset in Ediff"
-  (interactive)
+  (interactive (list (magit-gerrit-view-arguments)))
   (magit-gerrit--view-patchset-impl 'magit-gerrit--view-ediff))
 
 (defun magit-gerrit-download-patchset ()
@@ -611,8 +610,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     ("V" "Verify" magit-gerrit-verify-review)
     ("C" "Code Review" magit-gerrit-code-review)
     ("c" "Copy Review" magit-gerrit-copy-review)]
-   [("d" "View Patchset Diff" magit-gerrit-view-patchset-diff)
-    ("e" "View Patchset in Ediff" magit-gerrit-view-patchset-ediff)
+   [("v" "View Patchset" magit-gerrit-view)
     ("D" "Download Patchset" magit-gerrit-download-and-checkout-patchset)
     ("S" "Submit Review" magit-gerrit-submit-review)
     ("B" "Abandon Review" magit-gerrit-abandon-review)
@@ -626,7 +624,61 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 (transient-append-suffix 'magit-dispatch
   "r" `(,magit-gerrit-popup-prefix "Gerrit" magit-gerrit))
 
-(define-transient-command magit-gerrit-copy-review
+(define-transient-command magit-gerrit-view ()
+  "Popup for Magit Gerrit interface for viewing diff for patchsets"
+  ["Options"
+   (magit-gerrit-view:-origin)
+   (magit-gerrit-view:-changed)]
+  ["Actions"
+   ("d" "Diff" magit-gerrit-view-patchset-diff)
+   ("e" "Ediff" magit-gerrit-view-patchset-ediff)]
+  (interactive)
+  (transient-setup 'magit-gerrit-view nil nil))
+
+(defun magit-gerrit-view-arguments ()
+  (transient-args 'magit-gerrit-view))
+
+(defclass magit-gerrit--patchset (transient-option)
+  ((default :initarg :default)))
+
+(cl-defmethod transient-init-value ((obj magit-gerrit--patchset))
+  ;; take init value with default
+  (oset obj value (oref obj default)))
+
+(cl-defmethod transient-infix-value ((obj magit-gerrit--patchset))
+  ;; no trickery: just return the value
+  (oref obj value))
+
+(cl-defmethod transient-infix-read :before ((obj magit-gerrit--patchset))
+  ;; By defaul, when you choose to change the value of an argument that
+  ;; already has the value, it simply sets the value to nil. Patchsets
+  ;; should never be nil. In order to resolve this, we set it to nil
+  ;; ourselves first and delegate to the parent implementation after that.
+  ;;
+  ;; Default implementation for infix-read does a lot of different useful
+  ;; things. That's why we use :before mark to tell Emacs to call base class
+  ;; method after this implementation.
+  (with-slots (value) obj
+    (when value
+      (oset obj value nil))))
+
+(define-infix-argument magit-gerrit-view:-origin ()
+  :description "Compare change to"
+  :class 'magit-gerrit--patchset
+  :key "o"
+  :argument "origin="
+  :reader 'transient-read-number-N+
+  :default "base")
+
+(define-infix-argument magit-gerrit-view:-changed ()
+  :description "Patchset to view"
+  :class 'magit-gerrit--patchset
+  :key "p"
+  :argument "patchset="
+  :reader 'transient-read-number-N+
+  :default "last")
+
+(define-transient-command magit-gerrit-copy-review ()
   "Popup console for copy review to clipboard."
   ["Actions"
    ("C" "url and commit message" magit-gerrit-copy-review-url-commit-message)
