@@ -81,6 +81,7 @@
     (require 'magit-popup))
 (require 'json)
 (require 'dash)
+(require 'magit-gerrit-requests)
 
 (eval-when-compile
   (require 'cl-lib))
@@ -99,6 +100,11 @@
 
 (defvar-local magit-gerrit-remote "origin"
   "Default remote name to use for gerrit (e.g. \"origin\", \"gerrit\")")
+
+(defcustom magit-gerrit-url "http://gerrit"
+  "URL for the gerrit web view"
+  :group 'magit-gerrit
+  :type 'string)
 
 (defcustom magit-gerrit-popup-prefix "R"
   "Key code to open magit-gerrit popup"
@@ -334,13 +340,13 @@ Succeed even if branch already exist
   ;; ...and quit from the current ediff session
   (ediff-cleanup-mess))
 
-(defun magit-gerrit--ediff-set-bindings (revA revB files index)
+(defun magit-gerrit--ediff-set-bindings (revA revB files index comments)
   (let* ((goto-index
           (lambda (new-index)
             (magit-gerrit--close-ediff)
             ;; we consider `NEW-INDEX' to be correct and create a new
             ;; ediff session for it
-            (magit-gerrit--ediff-compare revA revB files new-index)))
+            (magit-gerrit--ediff-compare revA revB files new-index comments)))
          ;; this is an actual callback generator that checks index
          ;; boundaries and outputs the given error message if the check
          ;; has failed
@@ -358,7 +364,7 @@ Succeed even if branch already exist
     (define-key ediff-mode-map "P"
       (funcall command (1- index) "There is no previous file"))))
 
-(defun magit-gerrit--ediff-compare (revA revB files index)
+(defun magit-gerrit--ediff-compare (revA revB files index comments)
   "Compare REVA:FILES[INDEX] with REVB:FILES[INDEX] using Ediff.
 
 FILES have to be relative to the top directory of the
@@ -369,7 +375,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     (let* ((conf (current-window-configuration))
            (file (nth index files))
            (binding-setter
-            (lambda () (magit-gerrit--ediff-set-bindings revA revB files index)))
+            (lambda () (magit-gerrit--ediff-set-bindings revA revB files index comments)))
            (bufA (magit-find-file-noselect revA file))
            (bufB (magit-find-file-noselect revB file)))
       (ediff-buffers
@@ -384,14 +390,26 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
          ,binding-setter)
        'ediff-revision))))
 
+(defun magit-gerrit--fetch-comments ()
+  (let* ((jobj (magit-gerrit-review-at-point))
+         (number (alist-get 'number jobj))
+         (url
+          (concat magit-gerrit-url
+                  "/changes/" (number-to-string number)
+                  "/revisions/" "current"
+                  "/comments")))
+    ;; TODO: fetch comments for two revisions
+    (magit-gerrit--parse-comments (magit-gerrit--get url))))
+
 (defun magit-gerrit--view-ediff (revision-range)
   (let* ((files (magit-changed-files revision-range))
+         (comments (magit-gerrit--fetch-comments))
          (split-range (magit-split-range revision-range))
          (origin (car split-range))
          (changed (cdr split-range)))
     ;; start with the first file of the patchset
     ;; TODO: change to 'commit message' in the future
-    (magit-gerrit--ediff-compare origin changed files 0)))
+    (magit-gerrit--ediff-compare origin changed files 0 comments)))
 
 (define-suffix-command magit-gerrit-view-patchset-ediff (args)
   "View the Diff for a Patchset in Ediff"
