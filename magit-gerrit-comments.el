@@ -137,10 +137,12 @@ FIXME: currently we do not check for cases when the new prioity drops below 0"
             (seq-filter 'magit-gerrit-comment-overlay-p
                         (overlays-in pos pos))))
 
-(defun magit-gerrit-create-comment-overlays (comment-info)
+(defun magit-gerrit-create-comment-overlays (comment-info &optional buffer)
   "Create overlays for the provided comment info.
 
-COMMENT-INFO is an instance of magit-gerrit--commentinfo"
+COMMENT-INFO is an instance of magit-gerrit--commentinfo
+BUFFER if non nil create overlays in the given buffer, otherwise do
+this in the current one"
   (let* ((range (oref comment-info range))
          (start-pos (pos-at-line-col (alist-get 'start_line range)
                                      (alist-get 'start_col range)))
@@ -148,7 +150,7 @@ COMMENT-INFO is an instance of magit-gerrit--commentinfo"
          (end-pos (pos-at-line-col end-line (alist-get 'end_col range)))
 
          ;; Create overlay in the comment range to highlight it
-         (range-ov (make-overlay start-pos end-pos))
+         (range-ov (make-overlay start-pos end-pos buffer))
 
          ;; Create empty overlay starting at the next line for the comment
          ;; text. We are creating separate overlay here, because the range
@@ -160,7 +162,8 @@ COMMENT-INFO is an instance of magit-gerrit--commentinfo"
          (comment-text-ov-priority (magit-gerrit-new-comment-overlay-priority
                                     comment-text-ov-pos))
          (comment-text-ov (make-overlay comment-text-ov-pos
-                                        comment-text-ov-pos)))
+                                        comment-text-ov-pos
+                                        buffer)))
 
     (overlay-put range-ov 'face 'magit-gerrit-comment-range-face)
     (overlay-put range-ov 'magit-gerrit-range-ov t)
@@ -178,13 +181,17 @@ COMMENT-INFO is an instance of magit-gerrit--commentinfo"
     (overlay-put comment-text-ov 'comment-info comment-info)
     comment-text-ov))
 
-(defun magit-gerrit-create-overlays (comments)
+(defun magit-gerrit-create-overlays (comments &optional buffer)
   "Create overlays for each of the given comments.
 
-COMMENTS is a list of magit-gerrit--commentinfo objects"
-  (mapcar 'magit-gerrit-create-comment-overlays
-          (seq-sort (lambda (a b) (time-less-p (oref a date) (oref b date)))
-                    comments)))
+COMMENTS is a list of magit-gerrit--commentinfo objects
+BUFFER if non nil create overlays in the given buffer, otherwise do
+this in the current one"
+  (let ((sorted-comments
+         (seq-sort (lambda (a b) (time-less-p (oref a date) (oref b date)))
+                   comments)))
+    (dolist (comment sorted-comments)
+      (magit-gerrit-create-comment-overlays comment buffer))))
 
 ;;; _
 (provide 'magit-gerrit-comments)
