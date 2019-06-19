@@ -80,6 +80,7 @@
 (if (locate-library "magit-popup")
     (require 'magit-popup))
 (require 'json)
+(require 'dash)
 
 (eval-when-compile
   (require 'cl-lib))
@@ -288,33 +289,47 @@ Succeed even if branch already exist
               (eq (process-status magit-this-process) 'run))
     (sleep-for 0.005)))
 
-(defun magit-gerrit--fetch-patchset ()
+(defun magit-gerrit--fetch-patchset (ref)
+  (let* ((magit-proc (magit-fetch-other magit-gerrit-remote ref)))
+    (message (format "Waiting a git fetch from %s to complete..."
+                     magit-gerrit-remote))
+    (magit-gerrit-process-wait)
+    (magit-rev-hash "FETCH_HEAD")))
+
+(defun magit-gerrit--fetch-patchset-by-index (jobj index)
+  "Get the patchset reference from JOBJ by INDEX, fetch it and return its hash."
+  (pcase index
+    ("last" (magit-gerrit--fetch-patchset
+             (alist-get 'ref (alist-get 'currentPatchSet jobj))))
+    ;; here we have an indirect requirement that at least fetch already happened
+    ;; as base is fetched together with the main commit
+    ("base" (magit-rev-hash "FETCH_HEAD~1"))
+    (index  (magit-gerrit--fetch-patchset
+             (alist-get 'ref (elt (alist-get 'patchSets jobj)
+                                  (1- (string-to-number index))))))))
+
+(defun magit-gerrit--fetch-patchset-range (origin changed)
   "Download a Gerrit Review Patchset for diff viewing"
   (interactive)
   (let ((jobj (magit-gerrit-review-at-point)))
     (when jobj
-      (let ((ref (cdr (assoc 'ref (assoc 'currentPatchSet jobj))))
-            (dir default-directory))
-        (let* ((magit-proc (magit-fetch-other magit-gerrit-remote ref)))
-          (message (format "Waiting a git fetch from %s to complete..."
-                           magit-gerrit-remote))
-          (magit-gerrit-process-wait))
-        (message
-         (format "Generating Gerrit Patchset for refs %s dir %s" ref dir))
-        (magit-hash-range "FETCH_HEAD~1..FETCH_HEAD")))))
+      (let ((changed-hash (magit-gerrit--fetch-patchset-by-index jobj changed))
+            (origin-hash  (magit-gerrit--fetch-patchset-by-index jobj origin)))
+        (concat origin-hash ".." changed-hash)))))
 
-(defun magit-gerrit--view-patchset-impl (viewer)
+(defun magit-gerrit--view-patchset-impl (args viewer)
   "View selected patchset with a given viewer
 
 `VIEWER' should accept one argument: revision range"
-  (let ((revision-range (magit-gerrit--fetch-patchset)))
+  (-let* (((origin changed) args)
+          (revision-range (magit-gerrit--fetch-patchset-range origin changed)))
     (when revision-range
       (apply viewer (list revision-range)))))
 
 (define-suffix-command magit-gerrit-view-patchset-diff (args)
   "View the Diff for a Patchset"
   (interactive (list (magit-gerrit-view-arguments)))
-  (magit-gerrit--view-patchset-impl 'magit-diff-range))
+  (magit-gerrit--view-patchset-impl args 'magit-diff-range))
 
 (defun magit-gerrit--ediff-set-bindings (revA revB files index)
   (let* ((goto-index
@@ -382,24 +397,14 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 (define-suffix-command magit-gerrit-view-patchset-ediff (args)
   "View the Diff for a Patchset in Ediff"
   (interactive (list (magit-gerrit-view-arguments)))
-  (magit-gerrit--view-patchset-impl 'magit-gerrit--view-ediff))
+  (magit-gerrit--view-patchset-impl args 'magit-gerrit--view-ediff))
 
 (defun magit-gerrit-download-patchset ()
   "Download a Gerrit Review Patchset"
   (interactive)
   (let ((jobj (magit-gerrit-review-at-point)))
     (when jobj
-      (let ((ref (cdr (assoc 'ref (assoc 'currentPatchSet jobj))))
-            (dir default-directory)
-            (branch (format "review/%s/%s"
-                            (cdr (assoc 'username (assoc 'owner jobj)))
-                            (cdr (or (assoc 'topic jobj)
-                                     (assoc 'number jobj))))))
-        (let* ((magit-proc (magit-fetch-other magit-gerrit-remote ref)))
-          (message (format "Waiting a git fetch from %s to complete..."
-                           magit-gerrit-remote))
-          (magit-gerrit-process-wait))
-        (message (format "Checking out refs %s to %s in %s" ref branch dir))))))
+      (magit-gerrit--fetch-patchset-by-index jobj "last"))))
 
 (defun magit-gerrit-download-and-checkout-patchset ()
   "Download and checkout a Gerrit Review Patchset"
@@ -417,22 +422,22 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   "Browse the Gerrit Review with a browser."
   (interactive)
   (let ((jobj (magit-gerrit-review-at-point)))
-    (if jobj
-        (browse-url (cdr (assoc 'url jobj))))))
+    (when jobj
+      (browse-url (alist-get 'url jobj)))))
 
 (defun magit-gerrit--copy-review-impl (with-commit-message)
   "Copy review url and commit message."
   (let ((jobj (magit-gerrit-review-at-point)))
-    (if jobj
-        (with-temp-buffer
-          (insert
-           (concat (cdr (assoc 'url jobj))
-                   (if with-commit-message
-                       (concat " "
-                               (car (split-string
-                                     (cdr (assoc 'commitMessage jobj))
-                                     "\n" t))))))
-          (clipboard-kill-region (point-min) (point-max))))))
+    (when jobj
+      (with-temp-buffer
+        (insert
+         (concat (cdr (assoc 'url jobj))
+                 (when with-commit-message
+                   (concat " "
+                           (car (split-string
+                                 (cdr (assoc 'commitMessage jobj))
+                                 "\n" t))))))
+        (clipboard-kill-region (point-min) (point-max))))))
 
 (defun magit-gerrit-copy-review-url ()
   "Copy review url only"
