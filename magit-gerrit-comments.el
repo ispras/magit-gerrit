@@ -43,6 +43,12 @@
   "Face for highlighting currently selected comment's range"
   :group 'magit-gerrit-group)
 
+(defcustom magit-gerrit-comment-ts-format
+  "%b %d %H:%M %Y"
+  "The timestamp format used in gerrit comment overlays."
+  :group 'magit-gerrit-group
+  :type 'string)
+
 (defclass magit-gerrit--commentinfo ()
   ((author    :initform nil :initarg :author)
    (date      :initform nil :initarg :date)
@@ -53,7 +59,7 @@
   "Class that binds together all information related to the single comment.
 
 AUTHOR  is a string representing commment author
-DATE    is a string representing comment post date
+DATE    is the encoded TIME representing comment post date
 MESSAGE is a string representing actual comment message
 FILE    is a string representing filename this comment refers to
 RANGE   is an alist with 'start_line', 'start_col', 'end_line', 'end_col' keys")
@@ -74,13 +80,43 @@ COL  is the buffer column number"
   "Create comment text string with face properties.
 
 COMMENT-INFO is an instance of magit-gerrit-commentinfo"
-  (let ((heading (propertize (format "%s %s "
-                                     (oref comment-info date)
-                                     (oref comment-info author))
-                             'face 'magit-gerrit-comment-heading-face))
+  (let ((heading (propertize
+                  (format "%s %s "
+                          (format-time-string magit-gerrit-comment-ts-format
+                                              (oref comment-info date))
+                          (oref comment-info author))
+                  'face 'magit-gerrit-comment-heading-face))
         (content (propertize (oref comment-info message)
                              'face 'magit-gerrit-comment-face)))
     (format "\n%s\n\n%s\n" heading content)))
+
+(defconst magit-gerrit-maxpriority 1000
+  "Maximum prioity value for magit-gerrit comment overlays.")
+
+(defun magit-gerrit-new-comment-overlay-priority (pos)
+  "Compute priority for the new comment overlay at the given position POS.
+
+The new priority is based on whether there already exist some comment overlays.
+If there are no overlays return 'magit-gerrit-maxpriority' else, returns
+the lowest priority among the existing overlays minus 1.
+
+FIXME: currently we do not check for cases when the new prioity drops below 0"
+  (let* ((existing-overlays (magit-gerrit-comment-overlays-at pos))
+         (min-priority-ov (last existing-overlays)))
+    (if min-priority-ov
+        (1- (overlay-get (car min-priority-ov) 'priority))
+      magit-gerrit-maxpriority)))
+
+(defun magit-gerrit-comment-overlay-p (ov)
+  "Check whether given overlay OV corresponds to the gerrit comment."
+  (overlay-get ov 'magit-gerrit-comment-ov))
+
+(defun magit-gerrit-comment-overlays-at (pos)
+  "Return a list of magit-gerrit-comment overlays at the given position POS."
+  (seq-sort (lambda (a b) (< (overlay-get a 'priority)
+                             (overlay-get b 'priority)))
+            (seq-filter 'magit-gerrit-comment-overlay-p
+                        (overlays-in pos pos))))
 
 (defun magit-gerrit-create-comment-overlays (comment-info)
   "Create overlays for the provided comment info.
@@ -99,16 +135,34 @@ COMMENT-INFO is an instance of magit-gerrit--commentinfo"
          ;; text. We are creating separate overlay here, because the range
          ;; overlay does not necessarily end at the line end, which means
          ;; that 'after-string' will uglify the buffer contents.
-         (text-ov-pos (pos-at-line-col (1+ end-line) 1))
-         (comment-text-ov (make-overlay text-ov-pos text-ov-pos)))
+         (comment-text-ov-pos (pos-at-line-col (1+ end-line) 1))
+         ;; NOTE: it is necessary to compute priority BEFORE the new comment
+         ;; overlay is actually created.
+         (comment-text-ov-priority (magit-gerrit-new-comment-overlay-priority
+                                    comment-text-ov-pos))
+         (comment-text-ov (make-overlay comment-text-ov-pos
+                                        comment-text-ov-pos)))
 
     (overlay-put range-ov 'face 'magit-gerrit-comment-range-face)
+    (overlay-put range-ov 'magit-gerrit-range-ov t)
+
     (overlay-put comment-text-ov
                  'after-string
                  (magit-gerrit-create-comment-text-string comment-info))
+    (overlay-put comment-text-ov 'priority comment-text-ov-priority)
+    (overlay-put comment-text-ov 'magit-gerrit-comment-ov t)
 
     ;; Add range-overlay as a child property
-    (overlay-put comment-text-ov 'range-overlay range-ov)))
+    (overlay-put comment-text-ov 'range-overlay range-ov)
+    comment-text-ov))
+
+(defun magit-gerrit-create-overlays (comments)
+  "Create overlays for each of the given comments.
+
+COMMENTS is a list of magit-gerrit--commentinfo objects"
+  (mapcar 'magit-gerrit-create-comment-overlays
+          (seq-sort (lambda (a b) (time-less-p (oref a date) (oref b date)))
+                    comments)))
 
 ;;; _
 (provide 'magit-gerrit-comments)
