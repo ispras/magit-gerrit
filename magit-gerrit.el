@@ -462,10 +462,8 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 (defun magit-gerrit-popup-args (&optional something)
   (or (magit-gerrit-arguments) (list "")))
 
-(defun magit-gerrit-verify-review (args)
-  "Verify a Gerrit Review"
-  (interactive (magit-gerrit-popup-args))
-
+(defun magit-gerrit--score (post-function args)
+  "Score review at point and post the score using POST-FUNCTION"
   (let ((score (completing-read "Score: "
                                 '("-2" "-1" "0" "+1" "+2")
                                 nil t
@@ -475,23 +473,18 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
                         (cdr-safe (assoc 'currentPatchSet
                                          (magit-gerrit-review-at-point))))))
         (prj (magit-gerrit-get-project)))
-    (gerrit-review-verify prj rev score args)
+    (funcall post-function prj rev score args)
     (magit-refresh)))
+
+(defun magit-gerrit-verify-review (args)
+  "Verify a Gerrit Review"
+  (interactive (magit-gerrit-popup-args))
+  (magit-gerrit--score #'gerrit-review-verify args))
 
 (defun magit-gerrit-code-review (args)
   "Perform a Gerrit Code Review"
   (interactive (magit-gerrit-popup-args))
-  (let ((score (completing-read "Score: "
-                                '("-2" "-1" "0" "+1" "+2")
-                                nil t
-                                "+1"))
-        (rev (cdr-safe (assoc
-                        'revision
-                        (cdr-safe (assoc 'currentPatchSet
-                                         (magit-gerrit-review-at-point))))))
-        (prj (magit-gerrit-get-project)))
-    (gerrit-code-review prj rev score args)
-    (magit-refresh)))
+  (magit-gerrit--score #'gerrit-code-review args))
 
 (defun magit-gerrit-submit-review (args)
   "Submit a Gerrit Code Review"
