@@ -421,7 +421,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     (if jobj
         (browse-url (cdr (assoc 'url jobj))))))
 
-(defun magit-gerrit-copy-review (with-commit-message)
+(defun magit-gerrit--copy-review-impl (with-commit-message)
   "Copy review url and commit message."
   (let ((jobj (magit-gerrit-review-at-point)))
     (if jobj
@@ -438,12 +438,12 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 (defun magit-gerrit-copy-review-url ()
   "Copy review url only"
   (interactive)
-  (magit-gerrit-copy-review nil))
+  (magit-gerrit--copy-review-impl nil))
 
 (defun magit-gerrit-copy-review-url-commit-message ()
   "Copy review url with commit message"
   (interactive)
-  (magit-gerrit-copy-review t))
+  (magit-gerrit--copy-review-impl t))
 
 (defun magit-insert-gerrit-reviews ()
   (magit-gerrit-section 'gerrit-reviews
@@ -616,7 +616,8 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     ("k" "Delete Draft" magit-gerrit-delete-draft)
     ("A" "Add Reviewer" magit-gerrit-add-reviewer)
     ("V" "Verify" magit-gerrit-verify-review)
-    ("C" "Code Review" magit-gerrit-code-review)]
+    ("C" "Code Review" magit-gerrit-code-review)
+    ("c" "Copy Review" magit-gerrit-copy-review)]
    [("d" "View Patchset Diff" magit-gerrit-view-patchset-diff)
     ("e" "View Patchset in Ediff" magit-gerrit-view-patchset-ediff)
     ("D" "Download Patchset" magit-gerrit-download-and-checkout-patchset)
@@ -632,19 +633,15 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 (transient-append-suffix 'magit-dispatch
   "r" `(,magit-gerrit-popup-prefix "Gerrit" magit-gerrit))
 
-(magit-define-popup magit-gerrit-copy-review-popup
+(define-transient-command magit-gerrit-copy-review
   "Popup console for copy review to clipboard."
-  'magit-gerrit
-  :actions
-  '((?C "url and commit message" magit-gerrit-copy-review-url-commit-message)
-    (?c "url only" magit-gerrit-copy-review-url)))
-
-(magit-define-popup-action 'magit-gerrit-popup ?c "Copy Review"
-  'magit-gerrit-copy-review-popup)
+  ["Actions"
+   ("C" "url and commit message" magit-gerrit-copy-review-url-commit-message)
+   ("c" "url only" magit-gerrit-copy-review-url)])
 
 (defvar magit-gerrit-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map magit-gerrit-popup-prefix 'magit-gerrit-popup)
+    (define-key map magit-gerrit-popup-prefix 'magit-gerrit)
     map))
 
 (define-minor-mode magit-gerrit-mode "Gerrit support for Magit"
