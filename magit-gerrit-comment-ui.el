@@ -130,9 +130,9 @@ BUFFER if non nil create overlays in the given buffer, otherwise do
 this in the current one"
   (let* ((range (oref comment-info range))
          (start-pos (pos-at-line-col (alist-get 'start_line range)
-                                     (alist-get 'start_col range)))
+                                     (alist-get 'start_character range)))
          (end-line (alist-get 'end_line range))
-         (end-pos (pos-at-line-col end-line (alist-get 'end_col range)))
+         (end-pos (pos-at-line-col end-line (alist-get 'end_character range)))
 
          ;; Create overlay in the comment range to highlight it
          (range-ov (make-overlay start-pos end-pos buffer))
