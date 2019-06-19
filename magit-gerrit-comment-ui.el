@@ -1,4 +1,4 @@
-;;; magit-gerrit-comments.el --- magit-gerrit comment functionality -*- lexical-binding: t; -*-
+;;; magit-gerrit-comment-ui.el --- magit-gerrit comment ui -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2013-2019 Brian Fransioli
 ;;
@@ -10,7 +10,7 @@
 
 ;;; Code:
 
-(require 'eieio)
+(require 'magit-gerrit-comment)
 
 ;; TODO: move this somewhere else
 (defgroup magit-gerrit-group nil
@@ -54,21 +54,6 @@
   "The timestamp format used in gerrit comment overlays."
   :group 'magit-gerrit-group
   :type 'string)
-
-(defclass magit-gerrit--commentinfo ()
-  ((author    :initform nil :initarg :author)
-   (date      :initform nil :initarg :date)
-   (message   :initform nil :initarg :text)
-   (file      :initform nil :initarg :file)
-   (range     :initform nil :initarg :range))
-
-  "Class that binds together all information related to the single comment.
-
-AUTHOR  is a string representing commment author
-DATE    is the encoded TIME representing comment post date
-MESSAGE is a string representing actual comment message
-FILE    is a string representing filename this comment refers to
-RANGE   is an alist with 'start_line', 'start_col', 'end_line', 'end_col' keys")
 
 (defun pos-at-line-col (line col)
   "Translate line and column to the position in the given buffer.
@@ -194,5 +179,5 @@ this in the current one"
       (magit-gerrit-create-comment-overlays comment buffer))))
 
 ;;; _
-(provide 'magit-gerrit-comments)
-;;; magit-gerrit-comments.el ends here
+(provide 'magit-gerrit-comment-ui)
+;;; magit-gerrit-comment-ui.el ends here

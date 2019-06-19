@@ -84,6 +84,8 @@
 (eval-when-compile
   (require 'cl-lib))
 
+(require 'magit-gerrit-comment-ui)
+
 ;; Define a defvar-local macro for Emacs < 24.3
 (unless (fboundp 'defvar-local)
   (defmacro defvar-local (var val &optional docstring)
