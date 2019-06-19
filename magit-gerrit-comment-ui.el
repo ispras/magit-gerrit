@@ -55,17 +55,25 @@
   :group 'magit-gerrit-group
   :type 'string)
 
-(defun pos-at-line-col (line col)
+(defun magit-gerrit-pos-at-line-col (line col &optional buffer)
   "Translate line and column to the position in the given buffer.
 
 LINE is the buffer line number
-COL  is the buffer column number"
-  (save-excursion
-    (goto-char (point-min))
-    ;; TODO: check corner cases
-    (forward-line (1- line))
-    (move-to-column (1- col))
-    (point)))
+COL  is the buffer column number
+BUFFER if not nil perform translation in the given buffer, otherwise
+do this in the current one."
+  (let ((target-buffer (if buffer buffer (current-buffer))))
+    (with-current-buffer target-buffer
+      (save-excursion
+        (goto-char (point-min))
+        ;; We need to go forward `line'-1 line because line numeration begins at
+        ;; 1. Special case when `line' is 0 is handled correctly because for
+        ;; negative arguments `forward-line' moves backwards.
+        (forward-line (1- line))
+        ;; For columns we move exactly `col' times because numeration starts
+        ;; from 0
+        (move-to-column col)
+        (point)))))
 
 (defun magit-gerrit-create-comment-text-string (comment-info &optional active)
   "Create comment text string with face properties.
@@ -129,10 +137,15 @@ COMMENT-INFO is an instance of magit-gerrit--commentinfo
 BUFFER if non nil create overlays in the given buffer, otherwise do
 this in the current one"
   (let* ((range (oref comment-info range))
-         (start-pos (pos-at-line-col (alist-get 'start_line range)
-                                     (alist-get 'start_character range)))
+         (start-pos (magit-gerrit-pos-at-line-col
+                     (alist-get 'start_line range)
+                     (alist-get 'start_character range)
+                     buffer))
          (end-line (alist-get 'end_line range))
-         (end-pos (pos-at-line-col end-line (alist-get 'end_character range)))
+         (end-pos (magit-gerrit-pos-at-line-col
+                   end-line
+                   (alist-get 'end_character range)
+                   buffer))
 
          ;; Create overlay in the comment range to highlight it
          (range-ov (make-overlay start-pos end-pos buffer))
@@ -141,7 +154,8 @@ this in the current one"
          ;; text. We are creating separate overlay here, because the range
          ;; overlay does not necessarily end at the line end, which means
          ;; that 'after-string' will uglify the buffer contents.
-         (comment-text-ov-pos (pos-at-line-col (1+ end-line) 1))
+         (comment-text-ov-pos (magit-gerrit-pos-at-line-col
+                               (1+ end-line) 1 buffer))
          ;; NOTE: it is necessary to compute priority BEFORE the new comment
          ;; overlay is actually created.
          (comment-text-ov-priority (magit-gerrit-new-comment-overlay-priority
