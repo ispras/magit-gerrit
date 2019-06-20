@@ -100,7 +100,10 @@ ACTIVE whether to highlight text as active"
 ACTIVE if non-nil make the given comment overlay active"
   (overlay-put ov 'after-string
                (magit-gerrit-create-comment-text-string
-                (overlay-get ov 'comment-info) active)))
+                (overlay-get ov 'comment-info) active))
+  (overlay-put (overlay-get ov 'range-overlay) 'face
+               (if active 'magit-gerrit-active-range-face
+                 'magit-gerrit-range-face)))
 
 (defconst magit-gerrit-maxpriority 1000
   "Maximum prioity value for magit-gerrit comment overlays.")
