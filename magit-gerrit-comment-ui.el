@@ -116,7 +116,7 @@ If there are no overlays return 'magit-gerrit-maxpriority' else, returns
 the lowest priority among the existing overlays minus 1.
 
 FIXME: currently we do not check for cases when the new prioity drops below 0"
-  (let* ((existing-overlays (magit-gerrit-comment-overlays-at pos))
+  (let* ((existing-overlays (magit-gerrit-comment-overlays-in pos))
          (min-priority-ov (last existing-overlays)))
     (if min-priority-ov
         (1- (overlay-get (car min-priority-ov) 'priority))
@@ -126,12 +126,16 @@ FIXME: currently we do not check for cases when the new prioity drops below 0"
   "Check whether given overlay OV corresponds to the gerrit comment."
   (overlay-get ov 'magit-gerrit-comment-ov))
 
-(defun magit-gerrit-comment-overlays-at (pos)
-  "Return a list of magit-gerrit-comment overlays at the given position POS."
+(defun magit-gerrit-comment-overlays-in (start &optional end)
+  "Return a list of magit-gerrit-comment overlays in the given region.
+
+START and END are buffer positions.
+
+If END is nil return only comment overlays corresponding to START position"
   (seq-sort (lambda (a b) (< (overlay-get a 'priority)
                              (overlay-get b 'priority)))
             (seq-filter 'magit-gerrit-comment-overlay-p
-                        (overlays-in pos pos))))
+                        (overlays-in start (if end end start)))))
 
 (defun magit-gerrit-create-comment-overlays (comment-info &optional buffer)
   "Create overlays for the provided comment info.
