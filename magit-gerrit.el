@@ -328,13 +328,16 @@ Succeed even if branch already exist
   (interactive (list (magit-gerrit-view-arguments)))
   (magit-gerrit--view-patchset-impl args 'magit-diff-range))
 
+(defun magit-gerrit--close-ediff ()
+  ;; kill buffers A and B without bothering the user...
+  (ediff-janitor nil nil)
+  ;; ...and quit from the current ediff session
+  (ediff-cleanup-mess))
+
 (defun magit-gerrit--ediff-set-bindings (revA revB files index)
   (let* ((goto-index
           (lambda (new-index)
-            ;; kill buffers A and B without bothering the user...
-            (ediff-janitor nil nil)
-            ;; ...and quit from the current ediff session
-            (ediff-cleanup-mess)
+            (magit-gerrit--close-ediff)
             ;; we consider `NEW-INDEX' to be correct and create a new
             ;; ediff session for it
             (magit-gerrit--ediff-compare revA revB files new-index)))
@@ -375,8 +378,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
            (setq-local
             ediff-quit-hook
             (lambda ()
-              ,@(unless bufA '((ediff-kill-buffer-carefully ediff-buffer-A)))
-              ,@(unless bufB '((ediff-kill-buffer-carefully ediff-buffer-B)))
+              (magit-gerrit--close-ediff)
               (let ((magit-ediff-previous-winconf ,conf))
                 (run-hooks 'magit-ediff-quit-hook)))))
          ,binding-setter)
