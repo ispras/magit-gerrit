@@ -831,6 +831,21 @@ and port is the default gerrit ssh port."
 (add-hook 'magit-status-mode-hook #'magit-gerrit-check-enable t)
 (add-hook 'magit-log-mode-hook #'magit-gerrit-check-enable t)
 
+(defvar magit-gerrit-ui-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c ]") 'magit-gerrit-next-comment)
+    (define-key map (kbd "C-c [") 'magit-gerrit-prev-comment)
+    map)
+  "Keymap for `magit-gerrit-mode'.")
+
+(define-minor-mode magit-gerrit-ui-mode
+  "Minor mode for gerrit comment UI.
+
+Enables special bindings for working with gerrit commits"
+  :init-value nil
+  :lighter " Gerrit"
+  :group 'magit-gerrit-group)
+
 (provide 'magit-gerrit)
 
 ;;; magit-gerrit.el ends here
