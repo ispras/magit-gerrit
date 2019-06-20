@@ -105,6 +105,11 @@
   :group 'magit-gerrit
   :type 'key-sequence)
 
+(defcustom magit-gerrit-jump-to-reviews-key "jr"
+  "Key code to jump to magit-gerrit reviews section"
+  :group 'magit-gerrit
+  :type 'key-sequence)
+
 (defun gerrit-command (cmd &rest args)
   (let ((gcmd (concat
                "-x -p 29418 "
@@ -269,14 +274,6 @@ Succeed even if branch already exist
 
 (defun magit-gerrit-wash-reviews (&rest args)
   (magit-wash-sequence #'magit-gerrit-wash-review))
-
-(defun magit-gerrit-section (section title washer &rest args)
-  (let ((magit-git-executable "ssh")
-        (magit-git-global-arguments nil))
-    (magit-insert-section (section title)
-      (magit-insert-heading title)
-      (magit-git-wash washer (split-string (car args)))
-      (insert "\n"))))
 
 (defun magit-gerrit-remote-update (&optional remote)
   nil)
@@ -449,10 +446,18 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   (interactive)
   (magit-gerrit--copy-review-impl t))
 
+(magit-define-section-jumper magit-gerrit-jump-to-reviews
+  "Reviews" gerrit-reviews)
+
 (defun magit-insert-gerrit-reviews ()
-  (magit-gerrit-section 'gerrit-reviews
-                        "Reviews:" 'magit-gerrit-wash-reviews
-                        (gerrit-query (magit-gerrit-get-project))))
+  (let ((magit-git-executable "ssh")
+        (magit-git-global-arguments nil)
+        (command
+         (split-string (gerrit-query (magit-gerrit-get-project)))))
+    (magit-insert-section (gerrit-reviews)
+      (magit-insert-heading "Reviews:")
+      (magit-git-wash #'magit-gerrit-wash-reviews command)
+      (insert "\n"))))
 
 (defun magit-gerrit-add-reviewer ()
   (interactive)
@@ -708,9 +713,14 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
    ("C" "url and commit message" magit-gerrit-copy-review-url-commit-message)
    ("c" "url only" magit-gerrit-copy-review-url)])
 
+(defun magit-gerrit--set-default-gerrit-bindings (map)
+  (define-key map magit-gerrit-popup-prefix 'magit-gerrit)
+  (define-key map magit-gerrit-jump-to-reviews-key
+    'magit-gerrit-jump-to-reviews))
+
 (defvar magit-gerrit-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map magit-gerrit-popup-prefix 'magit-gerrit)
+    (magit-gerrit--set-default-gerrit-bindings map)
     map))
 
 (define-minor-mode magit-gerrit-mode "Gerrit support for Magit"
@@ -765,8 +775,7 @@ and port is the default gerrit ssh port."
                    (magit-gerrit-detect-ssh-creds remote-url))
                (string-match magit-gerrit-ssh-creds remote-url))
       ;; update keymap with prefix incase it has changed
-      (define-key magit-gerrit-mode-map
-        magit-gerrit-popup-prefix 'magit-gerrit-popup)
+      (magit-gerrit--set-default-gerrit-bindings magit-gerrit-mode-map)
       (magit-gerrit-mode t))))
 
 ;; Hack in dir-local variables that might be set for magit gerrit
