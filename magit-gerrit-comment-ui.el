@@ -155,7 +155,7 @@ this in the current one"
          ;; overlay does not necessarily end at the line end, which means
          ;; that 'after-string' will uglify the buffer contents.
          (comment-text-ov-pos (magit-gerrit-pos-at-line-col
-                               (1+ end-line) 1 buffer))
+                               (1+ end-line) 0 buffer))
          ;; NOTE: it is necessary to compute priority BEFORE the new comment
          ;; overlay is actually created.
          (comment-text-ov-priority (magit-gerrit-new-comment-overlay-priority
