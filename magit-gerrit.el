@@ -376,8 +376,8 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
            (file (nth index files))
            (binding-setter
             (lambda () (magit-gerrit--ediff-set-bindings revA revB files index comments)))
-           (bufA (magit-find-file-noselect revA file))
-           (bufB (magit-find-file-noselect revB file))
+           (bufA (magit-find-file revA file))
+           (bufB (magit-find-file revB file))
            (comments-adder
             (lambda ()
                (magit-gerrit-create-overlays
@@ -406,20 +406,32 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     ;; TODO: fetch comments for two revisions
     (magit-gerrit--parse-comments (magit-gerrit--get url))))
 
-(defun magit-gerrit--view-ediff (revision-range)
-  (let* ((files (magit-changed-files revision-range))
-         (comments (magit-gerrit--fetch-comments))
-         (split-range (magit-split-range revision-range))
-         (origin (car split-range))
-         (changed (cdr split-range)))
+(defun magit-gerrit--view-ediff (compare revision-range)
+  (-let* ((files (magit-changed-files revision-range))
+          (comments (magit-gerrit--fetch-comments))
+          ((origin . changed) (magit-split-range revision-range)))
     ;; start with the first file of the patchset
     ;; TODO: change to 'commit message' in the future
-    (magit-gerrit--ediff-compare origin changed files 0 comments)))
+    (funcall compare origin changed files 0 comments)))
+
+(defun magit-gerrit--view-patchset-in-ediff-impl (args compare)
+  (magit-gerrit--view-patchset-impl
+   args (lambda (range) (funcall #'magit-gerrit--view-ediff compare range))))
 
 (define-suffix-command magit-gerrit-view-patchset-ediff (args)
   "View the Diff for a Patchset in Ediff"
   (interactive (list (magit-gerrit-view-arguments)))
-  (magit-gerrit--view-patchset-impl args 'magit-gerrit--view-ediff))
+  (magit-gerrit--view-patchset-in-ediff-impl
+   args #'magit-gerrit--ediff-compare))
+
+(defun magit-gerrit--resolve (origin changed files index)
+  (magit-gerrit--ediff-compare changed "{worktree}" files 0))
+
+(define-suffix-command magit-gerrit-resolve-patchset (args)
+  "Resolve Patchset in Ediff"
+  (interactive (list (magit-gerrit-view-arguments)))
+  (magit-gerrit--view-patchset-in-ediff-impl
+   (-replace-at 0 "base" args) #'magit-gerrit--resolve))
 
 (defun magit-gerrit-download-patchset ()
   "Download a Gerrit Review Patchset"
@@ -666,7 +678,8 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
    (magit-gerrit-view:-changed)]
   ["Actions"
    ("d" "Diff" magit-gerrit-view-patchset-diff)
-   ("e" "Ediff" magit-gerrit-view-patchset-ediff)]
+   ("e" "Ediff" magit-gerrit-view-patchset-ediff)
+   ("r" "Resolve" magit-gerrit-resolve-patchset)]
   (interactive)
   (transient-setup 'magit-gerrit-view nil nil))
 
