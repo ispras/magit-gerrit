@@ -16,13 +16,7 @@
 (require 'eieio)
 (require 'json)
 
-(defclass magit-gerrit--commentinfo ()
-  ((author    :initform nil)
-   (date      :initform nil)
-   (line      :initform nil)
-   (message   :initform nil)
-   (range     :initform nil))
-  "Data class for a changeset/patchset comment.")
+(require 'magit-gerrit-comment)
 
 (defun magit-gerrit--get (url)
   "Fetch json from the URL into the temporary buffer and return the parsed result."
@@ -42,18 +36,13 @@
   (if-let ((comment-range (alist-get 'range comment)))
         comment-range
       (if-let ((comment-line (alist-get 'line comment)))
-            `((start_line . ,comment-line) (start_character . 1)
-              (end_line . ,comment-line) (end_character . 1))
-          `((start_line . 0) (start_character . 1)
-              (end_line . 0) (end_character . 1)))))
+            `((start_line . ,comment-line) (start_character . 0)
+              (end_line . ,comment-line) (end_character . 0))
+          `((start_line . 0) (start_character . 0)
+              (end_line . 0) (end_character . 0)))))
 
 (defun magit-gerrit--parse-file-comments (comments)
-  "Given COMMENTS list return corresponding list of commentinfo objects sorted by date."
-  (seq-sort
-   (lambda (prev-comment next-comment)
-     (time-less-p
-      (oref prev-comment date)
-      (oref next-comment date)))
+  "Given COMMENTS list return corresponding list of commentinfo objects."
    (seq-map
     (lambda (comment)
       (let ((comment-info (magit-gerrit--commentinfo)))
@@ -64,7 +53,7 @@
         (oset comment-info message (alist-get 'message comment))
         (oset comment-info range (magit-gerrit--extract-comment-range comment))
         comment-info))
-   comments)))
+    comments))
 
 (defun magit-gerrit--parse-comments (response)
   "Parse per file comments from the RESPONSE."

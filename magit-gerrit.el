@@ -81,12 +81,12 @@
     (require 'magit-popup))
 (require 'json)
 (require 'dash)
-(require 'magit-gerrit-requests)
 
 (eval-when-compile
   (require 'cl-lib))
 
 (require 'magit-gerrit-comment-ui)
+(require 'magit-gerrit-requests)
 
 ;; Define a defvar-local macro for Emacs < 24.3
 (unless (fboundp 'defvar-local)
@@ -377,7 +377,11 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
            (binding-setter
             (lambda () (magit-gerrit--ediff-set-bindings revA revB files index comments)))
            (bufA (magit-find-file-noselect revA file))
-           (bufB (magit-find-file-noselect revB file)))
+           (bufB (magit-find-file-noselect revB file))
+           (comments-adder
+            (lambda ()
+               (magit-gerrit-create-overlays
+                (alist-get file comments nil nil #'string=) bufB))))
       (ediff-buffers
        bufA bufB
        `((lambda ()
@@ -387,7 +391,8 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
               (magit-gerrit--close-ediff)
               (let ((magit-ediff-previous-winconf ,conf))
                 (run-hooks 'magit-ediff-quit-hook)))))
-         ,binding-setter)
+         ,binding-setter
+         ,comments-adder)
        'ediff-revision))))
 
 (defun magit-gerrit--fetch-comments ()
