@@ -672,7 +672,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   :class 'magit-gerrit--patchset
   :key "o"
   :argument "origin="
-  :reader 'transient-read-number-N+
+  :reader 'magit-gerrit--read-patchset-base
   :default "base")
 
 (define-infix-argument magit-gerrit-view:-changed ()
@@ -680,8 +680,27 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   :class 'magit-gerrit--patchset
   :key "p"
   :argument "patchset="
-  :reader 'transient-read-number-N+
+  :reader 'magit-gerrit--read-patchset
   :default "last")
+
+(defun magit-gerrit--read-patchset
+    (prompt initial-input history &optional include-base)
+  (let ((jobj (magit-gerrit-review-at-point)))
+    (when jobj
+      (let* ((overall-number
+              (alist-get 'number (alist-get 'currentPatchSet jobj)))
+             ;; all patchset IDs
+             (numerical (mapcar #'number-to-string
+                                (number-sequence 1 overall-number)))
+             (changed-candidates (cons "last" numerical))
+             ;; all candidates for completion
+             (candidates (if include-base
+                             (cons "base" changed-candidates)
+                           changed-candidates)))
+        (completing-read prompt candidates nil t nil history)))))
+
+(defun magit-gerrit--read-patchset-base (prompt initial-input history)
+  (magit-gerrit--read-patchset prompt initial-input history t))
 
 (define-transient-command magit-gerrit-copy-review ()
   "Popup console for copy review to clipboard."
