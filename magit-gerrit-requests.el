@@ -34,6 +34,19 @@
              special-symbols-offset (point-max))))
       (json-read-from-string json-string))))
 
+(defun magit-gerrit--extract-comment-range (comment)
+  "Return COMMENT range based on what fields this COMMENT has."
+  ;; when COMMENT has range attribute return it
+  ;; when COMMENT has line attribute return zero length range within this line
+  ;; otherwise, return zero length range withing the 0-th line
+  (if-let ((comment-range (alist-get 'range comment)))
+        comment-range
+      (if-let ((comment-line (alist-get 'line comment)))
+            `((start_line . ,comment-line) (start_character . 1)
+              (end_line . ,comment-line) (end_character . 1))
+          `((start_line . 0) (start_character . 1)
+              (end_line . 0) (end_character . 1)))))
+
 (defun magit-gerrit--parse-file-comments (comments)
   "Given COMMENTS list return corresponding list of commentinfo objects sorted by date."
   (seq-sort
@@ -49,13 +62,7 @@
               (apply 'encode-time
                      (parse-time-string (alist-get 'updated comment))))
         (oset comment-info message (alist-get 'message comment))
-        (let ((comment-range (alist-get 'range comment)))
-          (if comment-range
-              (oset comment-info range comment-range)
-            (let ((comment-line (alist-get 'line comment)))
-              (oset comment-info range
-                    `((start_line . ,comment-line) (start_character . 1)
-                      (end_line . ,comment-line) (end_character . 1))))))
+        (oset comment-info range (magit-gerrit--extract-comment-range comment))
         comment-info))
    comments)))
 
