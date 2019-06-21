@@ -334,9 +334,15 @@ Succeed even if branch already exist
   (interactive (list (magit-gerrit-view-arguments)))
   (magit-gerrit--view-patchset-impl args 'magit-diff-range))
 
+(defun magit-gerrit--kill-ediff-buffer (buffer)
+  "Kill BUFFER if this buffer is a temporary git buffer."
+  (when (not (buffer-file-name buffer))
+    (ediff-kill-buffer-carefully buffer)))
+
 (defun magit-gerrit--close-ediff ()
   ;; kill buffers A and B without bothering the user...
-  (ediff-janitor nil nil)
+  (magit-gerrit--kill-ediff-buffer ediff-buffer-A)
+  (magit-gerrit--kill-ediff-buffer ediff-buffer-B)
   ;; ...and quit from the current ediff session
   (ediff-cleanup-mess))
 
