@@ -98,12 +98,13 @@ ACTIVE whether to highlight text as active"
   "Toggle the active state of the given comment overlay OV.
 
 ACTIVE if non-nil make the given comment overlay active"
-  (overlay-put ov 'after-string
-               (magit-gerrit-create-comment-text-string
-                (overlay-get ov 'comment-info) active))
-  (overlay-put (overlay-get ov 'range-overlay) 'face
-               (if active 'magit-gerrit-active-range-face
-                 'magit-gerrit-range-face)))
+  (let ((comment-ov (overlay-get ov 'comment-overlay)))
+    (overlay-put comment-ov 'after-string
+                 (magit-gerrit-create-comment-text-string
+                  (overlay-get comment-ov 'comment-info) active))
+    (overlay-put ov 'face
+                 (if active 'magit-gerrit-active-range-face
+                   'magit-gerrit-range-face))))
 
 (defconst magit-gerrit-maxpriority 1000
   "Maximum prioity value for magit-gerrit comment overlays.")
@@ -122,20 +123,38 @@ FIXME: currently we do not check for cases when the new prioity drops below 0"
         (1- (overlay-get (car min-priority-ov) 'priority))
       magit-gerrit-maxpriority)))
 
-(defun magit-gerrit-comment-overlay-p (ov)
-  "Check whether given overlay OV corresponds to the gerrit comment."
-  (overlay-get ov 'magit-gerrit-comment-ov))
-
 (defun magit-gerrit-comment-overlays-in (start &optional end)
   "Return a list of magit-gerrit-comment overlays in the given region.
 
 START and END are buffer positions.
 
 If END is nil return only comment overlays corresponding to START position"
-  (seq-sort (lambda (a b) (< (overlay-get a 'priority)
-                             (overlay-get b 'priority)))
-            (seq-filter 'magit-gerrit-comment-overlay-p
-                        (overlays-in start (if end end start)))))
+  (magit-gerrit-overlays-in start end 'magit-gerrit-comment-ov))
+
+(defun magit-gerrit-range-overlays-in (start &optional end)
+  "Return a list of magit-gerrit-range overlays in the given region.
+
+START and END are buffer positions.
+
+If END is nil return only comment overlays corresponding to START position"
+  (magit-gerrit-overlays-in start end 'magit-gerrit-range-ov))
+
+(defun magit-gerrit-overlays-in (start end type)
+  "Get the sorted list of overlays of type TYPE.
+
+The sorting is multilevel.  The first one is sorting in ascending
+order of start position.  The second one is sorting in decreasing order of
+overlay priority.
+
+START end END are buffer positions."
+  (let ((overlays (seq-filter (lambda (ov) (overlay-get ov type))
+                              (overlays-in start (if end end start)))))
+    (seq-sort (lambda (a b)
+                (cond ((< (overlay-start a) (overlay-start b)) t)
+                      ((= (overlay-start a) (overlay-start b))
+                       (> (overlay-get a 'priority) (overlay-get b 'priority)))
+                      (t nil)))
+              overlays)))
 
 (defun magit-gerrit-create-comment-overlays (comment-info &optional buffer)
   "Create overlays for the provided comment info.
@@ -173,19 +192,20 @@ this in the current one"
 
     (overlay-put range-ov 'face 'magit-gerrit-comment-range-face)
     (overlay-put range-ov 'magit-gerrit-range-ov t)
+    (overlay-put range-ov 'priority comment-text-ov-priority)
 
     (overlay-put comment-text-ov
                  'after-string
                  (magit-gerrit-create-comment-text-string comment-info))
     (overlay-put comment-text-ov 'priority comment-text-ov-priority)
     (overlay-put comment-text-ov 'magit-gerrit-comment-ov t)
+    (overlay-put comment-text-ov 'comment-info comment-info)
 
-    ;; Add range-overlay as a child property
-    (overlay-put comment-text-ov 'range-overlay range-ov)
+    ;; Add comment text overlay as a child property
+    (overlay-put range-ov 'comment-overlay comment-text-ov)
     ;; Add comment-info as a property to the corresponding comment overlay
     ;; for possible references.
-    (overlay-put comment-text-ov 'comment-info comment-info)
-    comment-text-ov))
+    range-ov))
 
 (defun magit-gerrit-create-overlays (comments &optional buffer)
   "Create overlays for each of the given comments.
@@ -197,7 +217,11 @@ this in the current one"
          (seq-sort (lambda (a b) (time-less-p (oref a date) (oref b date)))
                    comments)))
     (dolist (comment sorted-comments)
-      (magit-gerrit-create-comment-overlays comment buffer))))
+      (magit-gerrit-create-comment-overlays comment buffer))
+    ;; Set the first comment as active
+    (when sorted-comments
+      (save-excursion
+        (magit-gerrit-goto-comment (magit-gerrit-nth-comment 0))))))
 
 ;;; _
 (provide 'magit-gerrit-comment-ui)
