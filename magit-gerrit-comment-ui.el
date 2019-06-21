@@ -207,6 +207,69 @@ this in the current one"
     ;; for possible references.
     range-ov))
 
+;; FIXME: find a better way to do this
+(defvar-local magit-gerrit--active-comment-ov nil
+  "Stores currently active comment in buffer")
+
+(defun magit-gerrit-point-in-ov-p (ov)
+  "Check whether current point is in the region of the given overlay OV."
+  (and (<= (point) (overlay-end ov)) (>= (point) (overlay-start ov))))
+
+(defun magit-gerrit--nth-next-overlay(ov overlays n)
+  "Get N-th next overlay in OVERLAYS after the given OV.
+
+If there is no such overlay return nil."
+  (when-let* ((pos (position ov overlays))
+              (nth-pos (+ pos n)))
+    (when (>= nth-pos 0) (nth nth-pos overlays))))
+
+(defun magit-gerrit--next-overlay ()
+  "Get the next available overlay.
+
+If there are no next overlays return nil."
+  (if magit-gerrit--active-comment-ov
+      (let* ((start (overlay-start magit-gerrit--active-comment-ov))
+             (overlays (magit-gerrit-range-overlays-in start (point-max))))
+        (magit-gerrit--nth-next-overlay magit-gerrit--active-comment-ov
+                                        overlays 1))
+    (nth 0 (magit-gerrit-range-overlays-in (point) (point-max)))))
+
+(defun magit-gerrit--prev-overlay ()
+  "Get the previous available overlay.
+
+If there are no previous overlays return nil."
+  (if magit-gerrit--active-comment-ov
+      (let* ((start (overlay-start magit-gerrit--active-comment-ov))
+             (overlays (magit-gerrit-range-overlays-in (point-min) (1+ start))))
+        (magit-gerrit--nth-next-overlay magit-gerrit--active-comment-ov
+                                        overlays -1))
+    (car (last (magit-gerrit-range-overlays-in  (point-min) (1+ (point)))))))
+
+(defun magit-gerrit-next-comment ()
+  "Go to the gerrit comment next to the current position."
+  (interactive)
+  (if-let ((next-overlay (magit-gerrit--next-overlay)))
+      (magit-gerrit-goto-comment next-overlay)
+    (message "No more commments")))
+
+(defun magit-gerrit-prev-comment ()
+  "Go to the gerrit comment previous to the current position."
+  (interactive)
+  (if-let ((prev-overlay (magit-gerrit--prev-overlay)))
+      (magit-gerrit-goto-comment prev-overlay)
+    (message "No previous comments")))
+
+(defun magit-gerrit-goto-comment (range-ov)
+  "Go to the comment specified by the RANGE-OV overlay."
+  ;; Set current comment as inactive
+  (when magit-gerrit--active-comment-ov
+    (magit-gerrit-toggle-comment-overlay-active magit-gerrit--active-comment-ov nil))
+
+  ;; Update current active comment and go there
+  (setq magit-gerrit--active-comment-ov range-ov)
+  (magit-gerrit-toggle-comment-overlay-active magit-gerrit--active-comment-ov t)
+  (goto-char (overlay-start magit-gerrit--active-comment-ov)))
+
 (defun magit-gerrit-create-overlays (comments &optional buffer)
   "Create overlays for each of the given comments.
 
@@ -217,12 +280,7 @@ this in the current one"
          (seq-sort (lambda (a b) (time-less-p (oref a date) (oref b date)))
                    comments)))
     (dolist (comment sorted-comments)
-      (magit-gerrit-create-comment-overlays comment buffer))
-    ;; Set the first comment as active
-    (when sorted-comments
-      (save-excursion
-        (magit-gerrit-goto-comment (magit-gerrit-nth-comment 0))))))
-
+      (magit-gerrit-create-comment-overlays comment buffer))))
 ;;; _
 (provide 'magit-gerrit-comment-ui)
 ;;; magit-gerrit-comment-ui.el ends here
