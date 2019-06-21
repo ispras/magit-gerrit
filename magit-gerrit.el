@@ -505,9 +505,6 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
                   "--add" (read-string "Reviewer Name/Email: ")
                   (cdr-safe (assoc 'id (magit-gerrit-review-at-point)))))
 
-(defun magit-gerrit-popup-args (&optional something)
-  (or (magit-gerrit-arguments) (list "")))
-
 (defun magit-gerrit--score (post-function args)
   "Score review at point and post the score using POST-FUNCTION"
   (let ((score (completing-read "Score: "
@@ -524,18 +521,18 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 
 (defun magit-gerrit-verify-review (args)
   "Verify a Gerrit Review"
-  (interactive (magit-gerrit-popup-args))
+  (interactive (list (magit-gerrit-arguments)))
   (magit-gerrit--score #'gerrit-review-verify args))
 
 (defun magit-gerrit-code-review (args)
   "Perform a Gerrit Code Review"
-  (interactive (magit-gerrit-popup-args))
+  (interactive (list (magit-gerrit-arguments)))
   (magit-gerrit--score #'gerrit-code-review args))
 
 (defun magit-gerrit-submit-review (args)
   "Submit a Gerrit Code Review"
   ;; "ssh -x -p 29418 user@gerrit gerrit review REVISION  -- --project PRJ --submit "
-  (interactive (magit-gerrit-popup-args))
+  (interactive (list (magit-gerrit-arguments)))
   (gerrit-ssh-cmd "review"
                   (cdr-safe (assoc
                              'revision
@@ -664,7 +661,12 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     ("b" "Browse Review" magit-gerrit-browse-review)
     ("H" "Cherry-pick Patchset" magit-gerrit-cherry-pick-patchset)]]
   ["Options"
-   ("m" "Comment" "--message " magit-gerrit-read-comment)])
+   ("m" "Comment" "--message " magit-gerrit-read-comment)]
+  (interactive)
+  (transient-setup 'magit-gerrit nil nil))
+
+(defun magit-gerrit-arguments ()
+  (transient-args 'magit-gerrit))
 
 ;; Attach Magit Gerrit to Magit's default help popup
 ;; See: https://github.com/magit/magit/wiki/Converting-popup-modifications-to-transient-modifications#adding-an-action
