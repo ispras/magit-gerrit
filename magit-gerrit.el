@@ -835,6 +835,7 @@ and port is the default gerrit ssh port."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c ]") 'magit-gerrit-next-comment)
     (define-key map (kbd "C-c [") 'magit-gerrit-prev-comment)
+    (define-key map (kbd "C-c a") 'magit-gerrit-add-comment)
     map)
   "Keymap for `magit-gerrit-mode'.")
 

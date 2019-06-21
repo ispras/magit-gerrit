@@ -81,10 +81,11 @@ do this in the current one."
 COMMENT-INFO is an instance of magit-gerrit-commentinfo
 ACTIVE whether to highlight text as active"
   (let ((heading (propertize
-                  (format "%s %s "
+                  (format "%s %s %s"
                           (format-time-string magit-gerrit-comment-ts-format
                                               (oref comment-info date))
-                          (oref comment-info author))
+                          (oref comment-info author)
+                          (if (oref comment-info draft) "[Draft]" ""))
                   'face (if active
                             'magit-gerrit-active-comment-heading-face
                           'magit-gerrit-comment-heading-face)))
@@ -281,6 +282,54 @@ this in the current one"
                    comments)))
     (dolist (comment sorted-comments)
       (magit-gerrit-create-comment-overlays comment buffer))))
+
+(defun magit-gerrit--char-at-pos (&optional pos)
+  "Given position POS in current buffer get its column number."
+  (save-excursion (goto-char (if pos pos (point))) (current-column)))
+
+(defun magit-gerrit--pos-to-line-col (start end)
+  "Translate given position range to line-column range.
+
+START and END are buffer positions."
+  (list (cons 'start_line (line-number-at-pos start))
+        (cons 'start_character (magit-gerrit--char-at-pos start))
+        (cons 'end_line (line-number-at-pos end))
+        (cons 'end_character (magit-gerrit--char-at-pos end))))
+
+(defun magit-gerrit--new-comment-range ()
+  "Compute range for the new comment.
+
+Resulting range depends on several conditions.  If the range was
+selected manually it will be the resulting range.
+
+Othewrise pick the (point, point) region or currently active comment's region
+if the point is inside the latter."
+  (cond
+   ;; Handle selected region case
+   ((use-region-p)
+    (magit-gerrit--pos-to-line-col (region-beginning) (region-end)))
+
+   ;; Handle case when we are inside the active comment's region
+   ((and magit-gerrit--active-comment-ov
+         (magit-gerrit-point-in-ov-p magit-gerrit--active-comment-ov))
+    (magit-gerrit--pos-to-line-col
+     (overlay-start magit-gerrit--active-comment-ov)
+     (overlay-end magit-gerrit--active-comment-ov)))
+
+   ;; Handle default case
+   (t (magit-gerrit--pos-to-line-col (point) (point)))))
+
+(defun magit-gerrit-add-comment ()
+  "Add new draft comment for the current region or point."
+  (interactive)
+  (magit-gerrit-create-comment-overlays
+   (magit-gerrit--commentinfo
+    :author "Konstantin Sorokin"
+    :date (current-time)
+    :text (read-from-minibuffer "Comment message: ")
+    :file (magit-current-file)
+    :range (magit-gerrit--new-comment-range)
+    :draft t)))
 ;;; _
 (provide 'magit-gerrit-comment-ui)
 ;;; magit-gerrit-comment-ui.el ends here

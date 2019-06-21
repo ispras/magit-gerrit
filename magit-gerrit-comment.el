@@ -17,7 +17,8 @@
    (date      :initform nil :initarg :date)
    (message   :initform nil :initarg :text)
    (file      :initform nil :initarg :file)
-   (range     :initform nil :initarg :range))
+   (range     :initform nil :initarg :range)
+   (draft     :initform nil :initarg :draft))
 
   "Class that binds together all information related to the single comment.
 
