@@ -352,7 +352,8 @@ Succeed even if branch already exist
             (magit-gerrit--close-ediff)
             ;; we consider `NEW-INDEX' to be correct and create a new
             ;; ediff session for it
-            (magit-gerrit--ediff-compare revA revB files new-index comments)))
+            (magit-gerrit--ediff-compare revA revB
+                                         files new-index comments)))
          ;; this is an actual callback generator that checks index
          ;; boundaries and outputs the given error message if the check
          ;; has failed
@@ -370,7 +371,7 @@ Succeed even if branch already exist
     (define-key ediff-mode-map "P"
       (funcall command (1- index) "There is no previous file"))))
 
-(defun magit-gerrit--ediff-compare (revA revB files index comments)
+(defun magit-gerrit--ediff-compare (revA revB files index comments-drafts)
   "Compare REVA:FILES[INDEX] with REVB:FILES[INDEX] using Ediff.
 
 FILES have to be relative to the top directory of the
@@ -380,24 +381,31 @@ COMMENTS is a cons of comments for both revisions
 It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   (magit-with-toplevel
     (-let* ((conf (current-window-configuration))
-           (file (nth index files))
-           (binding-setter
-            (lambda ()
-              (magit-gerrit--ediff-set-bindings revA revB files index
-                                                comments)))
-           (bufA (magit-find-file revA file))
-           (bufB (magit-find-file revB file))
-           ((commentsA commentsB)
-            (seq-map
-             (lambda (revision-comments)
-               (alist-get file revision-comments nil nil #'string=))
-             comments))
-           (comments-adder
-            (lambda ()
-              (-each `((,revA ,commentsA ,bufA) (,revB ,commentsB ,bufB))
-                       (-lambda ((revision comments buffer))
-                         (magit-gerrit--add-comments revision comments
-                                                      buffer))))))
+            (file (nth index files))
+            (binding-setter
+             (lambda ()
+               (magit-gerrit--ediff-set-bindings revA revB files index comments-drafts)))
+            (bufA (magit-find-file revA file))
+            (bufB (magit-find-file revB file))
+            (get-file-comments
+             (lambda (comments-alist)
+               (alist-get file comments-alist nil nil #'string=)))
+            (get-revision-comments
+             (-lambda ((comments drafts))
+               (append
+                (funcall get-file-comments comments)
+                (funcall get-file-comments drafts))))
+            ((commentsA commentsB)
+             (seq-map
+              (lambda (revision-comments-drafts)
+                (funcall get-revision-comments revision-comments-drafts))
+              comments-drafts))
+            (comments-adder
+             (lambda ()
+               (-each `((,revA ,commentsA ,bufA)
+                        (,revB ,commentsB ,bufB))
+                 (-lambda ((revision comments buffer))
+                   (magit-gerrit--add-comments revision comments buffer))))))
       (ediff-buffers
        bufA bufB
        `((lambda ()
@@ -411,28 +419,41 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
          ,comments-adder)
        'ediff-revision))))
 
-(defun magit-gerrit--fetch-comments (origin changed)
+(defun magit-gerrit--fetch-revision-comments (revision)
   (let* ((jobj (magit-gerrit-review-at-point))
-         (number (number-to-string (alist-get 'number jobj)))
-         (get-url
-          (lambda (changeset patchset)
-            (concat magit-gerrit-url
-                    "/changes/" changeset
-                    "/revisions/" patchset
-                    "/comments")))
-         (urlA
+         (changeset (number-to-string (alist-get 'number jobj)))
+         (base-url
+          (concat magit-gerrit-url
+                  "/a/changes/" changeset
+                  "/revisions/" revision))
+         (comments-url
+          (concat base-url "/comments"))
+         (drafts-url
+          (concat base-url "/drafts"))
+         (fetch-alist
+          `((comments . ((url . ,(concat base-url "/comments"))
+                         (parse-params . nil)))
+            (drafts . ((url . ,(concat base-url "/drafts"))
+                       (parse-params . (t)))))))
+    (seq-map
+     (-lambda ((comment-type . params))
+       (-let (((&alist 'parse-params 'url) params))
+         (magit-gerrit--parse-comments (magit-gerrit--get url) parse-params)))
+     fetch-alist)))
+
+(defun magit-gerrit--fetch-comments (origin changed)
+  (let* ((origin
           ;; "BASE" ref comments always relate to some patchset
           ;; we fetch them from this patchsets' overall comments array
           ;; in current case, needed patchsets' ref is CHANGED
           (if (get-text-property 0 'base origin)
-              (funcall get-url number changed)
-            (funcall get-url number origin)))
-         (urlB
-          (funcall get-url number changed)))
-  (-map
-   (lambda (url)
-     (magit-gerrit--parse-comments (magit-gerrit--get url)))
-   (list urlA urlB))))
+              changed
+            origin))
+         (refs (list origin changed)))
+    (seq-map
+     (lambda (ref)
+       (magit-gerrit--fetch-revision-comments ref))
+     refs)))
 
 (defun magit-gerrit--view-ediff (compare revision-range)
   (-let* ((files (magit-changed-files revision-range))
@@ -452,8 +473,11 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   (magit-gerrit--view-patchset-in-ediff-impl
    args #'magit-gerrit--ediff-compare))
 
-(defun magit-gerrit--resolve (origin changed files index comments drafts)
-  (magit-gerrit--ediff-compare changed "{worktree}" files 0 comments drafts))
+(defun magit-gerrit--resolve (origin changed files index comments)
+  (magit-gerrit--ediff-compare changed "{worktree}" files 0
+                               ;; dismiss comments for the "right" part
+                               ;; as it is a worktree
+                               (-replace-at 1 nil comments)))
 
 (define-suffix-command magit-gerrit-resolve-patchset (args)
   "Resolve Patchset in Ediff"

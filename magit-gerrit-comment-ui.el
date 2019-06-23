@@ -69,7 +69,7 @@ If BUFFER is nil show comments in the current buffer."
            (seq-filter (lambda (comment)
                          (not (oref comment side)))
                        comments))))
-  (magit-gerrit-create-overlays filtered-comments buffer)))
+    (magit-gerrit-create-overlays filtered-comments buffer)))
 
 (defun magit-gerrit-pos-at-line-col (line col &optional buffer)
   "Translate line and column to the position in the given buffer.

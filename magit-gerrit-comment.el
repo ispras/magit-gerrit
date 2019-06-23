@@ -25,6 +25,7 @@
 
 AUTHOR  is a string representing commment author
 DATE    is the encoded TIME representing comment post date
+DRAFT   is a boolean flag indicating that this comment is a draft
 MESSAGE is a string representing actual comment message
 FILE    is a string representing filename this comment refers to
 RANGE   is an alist with 'start_line', 'start_col', 'end_line', 'end_col' keys
