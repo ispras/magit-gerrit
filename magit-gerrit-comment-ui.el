@@ -55,6 +55,22 @@
   :group 'magit-gerrit-group
   :type 'string)
 
+(defun magit-gerrit--add-comments (revision comments &optional buffer)
+  "Add COMMENTS's overlays for the REVISION in the BUFFER.
+
+Break up comments for the BASE and comments for the patchset
+according to the REVISION.
+If BUFFER is nil show comments in the current buffer."
+  (let ((filtered-comments
+         (if (get-text-property 0 'base revision)
+             (seq-filter (lambda (comment)
+                           (oref comment side))
+                         comments)
+           (seq-filter (lambda (comment)
+                         (not (oref comment side)))
+                       comments))))
+  (magit-gerrit-create-overlays filtered-comments buffer)))
+
 (defun magit-gerrit-pos-at-line-col (line col &optional buffer)
   "Translate line and column to the position in the given buffer.
 

@@ -52,6 +52,7 @@
                      (parse-time-string (alist-get 'updated comment))))
         (oset comment-info message (alist-get 'message comment))
         (oset comment-info range (magit-gerrit--extract-comment-range comment))
+        (oset comment-info side (alist-get 'side comment))
         comment-info))
     comments))
 
