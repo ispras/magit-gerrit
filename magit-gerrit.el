@@ -748,7 +748,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
              (candidates (if include-base
                              (cons "base" changed-candidates)
                            changed-candidates)))
-        (completing-read prompt candidates nil t nil history)))))
+        (completing-read prompt candidates nil t nil nil)))))
 
 (defun magit-gerrit--read-patchset-base (prompt initial-input history)
   (magit-gerrit--read-patchset prompt initial-input history t))
