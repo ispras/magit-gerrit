@@ -28,25 +28,35 @@
              special-symbols-offset (point-max))))
       (json-read-from-string json-string))))
 
+(defun magit-gerrit--extract-author (comment)
+  "Return COMMENT's author.
+If author property of the COMMENT is nil, return currently authorized user."
+  (let ((comment-author (alist-get 'name (alist-get 'author comment))))
+    (if comment-author
+        comment-author
+      (let* ((account-url (concat magit-gerrit-url "/a/accounts/self"))
+             (account (magit-gerrit--get account-url)))
+        (alist-get 'name account)))))
+
 (defun magit-gerrit--extract-comment-range (comment)
   "Return COMMENT range based on what fields this COMMENT has."
   ;; when COMMENT has range attribute return it
   ;; when COMMENT has line attribute return zero length range within this line
   ;; otherwise, return zero length range withing the 0-th line
   (if-let ((comment-range (alist-get 'range comment)))
-        comment-range
-      (if-let ((comment-line (alist-get 'line comment)))
-            `((start_line . ,comment-line) (start_character . 0)
-              (end_line . ,comment-line) (end_character . 0))
-          `((start_line . 0) (start_character . 0)
-              (end_line . 0) (end_character . 0)))))
+      comment-range
+    (if-let ((comment-line (alist-get 'line comment)))
+        `((start_line . ,comment-line) (start_character . 0)
+          (end_line . ,comment-line) (end_character . 0))
+      `((start_line . 0) (start_character . 0)
+        (end_line . 0) (end_character . 0)))))
 
 (defun magit-gerrit--parse-file-comments (comments &optional drafts)
   "Given COMMENTS and DRAFTS lists return corresponding list of commentinfo objects."
   (seq-map
    (lambda (comment)
      (let ((comment-info (magit-gerrit--commentinfo)))
-       (oset comment-info author (alist-get 'name (alist-get 'author comment)))
+       (oset comment-info author (magit-gerrit--extract-author comment))
        (oset comment-info date
              (apply 'encode-time
                     (parse-time-string (alist-get 'updated comment))))
