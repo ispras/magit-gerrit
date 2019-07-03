@@ -18,6 +18,9 @@
 
 (require 'magit-gerrit-comment)
 
+(defvar-local magit-gerrit-account-self nil
+  "Account alist representing currently authenticated user.")
+
 (defun magit-gerrit--get (url)
   "Fetch json from the URL into the temporary buffer and return the parsed result."
   (with-temp-buffer
@@ -28,15 +31,24 @@
              special-symbols-offset (point-max))))
       (json-read-from-string json-string))))
 
+(defun magit-gerrit--get-account ()
+  "Return currently authorized user's account alist object.
+Try to get value from the global variable `magit-gerrit-account-self'.
+Otherwise, fetch account info through the API."
+  (if magit-gerrit-account-self
+      magit-gerrit-account-self
+    (let* ((account-url (concat magit-gerrit-url "/a/accounts/self"))
+           (account (magit-gerrit--get account-url)))
+      (setq magit-gerrit-account-self account)
+      account)))
+
 (defun magit-gerrit--extract-author (comment)
   "Return COMMENT's author.
 If author property of the COMMENT is nil, return currently authorized user."
-  (let ((comment-author (alist-get 'name (alist-get 'author comment))))
-    (if comment-author
-        comment-author
-      (let* ((account-url (concat magit-gerrit-url "/a/accounts/self"))
-             (account (magit-gerrit--get account-url)))
-        (alist-get 'name account)))))
+  (alist-get 'name
+             (if-let ((comment-author (alist-get 'author comment)))
+                 comment-author
+               (magit-gerrit--get-account))))
 
 (defun magit-gerrit--extract-comment-range (comment)
   "Return COMMENT range based on what fields this COMMENT has."

@@ -11,6 +11,7 @@
 ;;; Code:
 
 (require 'magit-gerrit-comment)
+(require 'magit-gerrit-requests)
 
 ;; TODO: move this somewhere else
 (defgroup magit-gerrit-group nil
@@ -340,7 +341,7 @@ if the point is inside the latter."
   (interactive)
   (magit-gerrit-create-comment-overlays
    (magit-gerrit--commentinfo
-    :author "Konstantin Sorokin"
+    :author (alist-get 'name (magit-gerrit--get-account))
     :date (current-time)
     :text (read-from-minibuffer "Comment message: ")
     :file (magit-current-file)
