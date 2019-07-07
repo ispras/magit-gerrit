@@ -21,10 +21,33 @@
 (defvar-local magit-gerrit-account-self nil
   "Account alist representing currently authenticated user.")
 
+(defun magit-gerrit--patchset-url (changeset revision)
+  (concat magit-gerrit-url
+          "/a/changes/" changeset
+          "/revisions/" revision))
+
 (defun magit-gerrit--get (url)
+  "Make a GET request to the URL."
+  (let ((url-request-method "GET"))
+    (magit-gerrit--request url)))
+
+(defun magit-gerrit--post (url data)
+  "Make a POST request to the URL with the given DATA.
+
+DATA should be an alist."
+  (let ((url-request-method "POST")
+        (url-request-extra-headers
+         '(("Content-Type" . "application/json; charset=UTF-8")))
+        (url-request-data (json-encode-alist data)))
+    (magit-gerrit--request url)))
+
+(defun magit-gerrit--request (url)
   "Fetch json from the URL into the temporary buffer and return the parsed result."
   (with-temp-buffer
     (url-insert-file-contents url)
+    ;; gerrit API returns 5 special symbols before any response
+    ;; to prevent Cross Site Script Inclusion (XSSI) attacks
+    ;; we skip these symbols to parse correctly
     (let* ((special-symbols-offset 5)
            (json-string
             (buffer-substring-no-properties

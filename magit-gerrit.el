@@ -138,8 +138,6 @@
                   (concat "project:" prj)
                   (concat "status:" (or status "open"))))
 
-(defun gerrit-review ())
-
 (defun gerrit-ssh-cmd (cmd &rest args)
   (apply #'call-process
          "ssh" nil nil nil
@@ -423,9 +421,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   (let* ((jobj (magit-gerrit-review-at-point))
          (changeset (number-to-string (alist-get 'number jobj)))
          (base-url
-          (concat magit-gerrit-url
-                  "/a/changes/" changeset
-                  "/revisions/" revision))
+          (magit-gerrit--patchset-url changeset revision))
          (comments-url
           (concat base-url "/comments"))
          (drafts-url
@@ -579,7 +575,18 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 (defun magit-gerrit-code-review (args)
   "Perform a Gerrit Code Review"
   (interactive (magit-gerrit-arguments))
-  (magit-gerrit--score #'gerrit-code-review args))
+  (-let* (((message score) args)
+          (jobj (magit-gerrit-review-at-point))
+          (changeset (number-to-string (alist-get 'number jobj)))
+          (revision (number-to-string (alist-get 'number (alist-get 'currentPatchSet jobj))))
+          (url (concat (magit-gerrit--patchset-url changeset revision)
+                       "/review"))
+          (data `(
+                  ("message" . ,message)
+                  ("labels" . (("Code-Review" . ,(string-to-number score))))
+                  ;; Publish drafts for the current revision
+                  ("drafts" . "PUBLISH"))))
+    (magit-gerrit--post url data "POST")))
 
 (defun magit-gerrit-submit-review (args)
   "Submit a Gerrit Code Review"
@@ -689,10 +696,6 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     (gerrit-review-abandon prj rev)
     (magit-refresh)))
 
-(defun magit-gerrit-read-comment (&rest args)
-  (format "\'\"%s\"\'"
-          (read-from-minibuffer "Message: ")))
-
 (defun magit-gerrit-create-branch (branch parent))
 
 (define-transient-command magit-gerrit ()
@@ -713,7 +716,8 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     ("b" "Browse Review" magit-gerrit-browse-review)
     ("H" "Cherry-pick Patchset" magit-gerrit-cherry-pick-patchset)]]
   ["Options"
-   ("m" "Comment" "--message " magit-gerrit-read-comment)]
+   (magit-gerrit:-message)
+   (magit-gerrit:-score)]
   (interactive)
   (transient-setup 'magit-gerrit nil nil))
 
@@ -743,6 +747,9 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 (defclass magit-gerrit--patchset (transient-option)
   ((default :initarg :default)))
 
+(defclass magit-gerrit--review (transient-option)
+  ((default :initarg :default)))
+
 (cl-defmethod transient-init-value ((obj magit-gerrit--patchset))
   ;; take init value with default
   (oset obj value (oref obj default)))
@@ -764,6 +771,22 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     (when value
       (oset obj value nil))))
 
+(define-infix-argument magit-gerrit:-message ()
+  :description "Commit message"
+  :class 'magit-gerrit--patchset
+  :key "m"
+  :argument "message="
+  :reader 'magit-gerrit--read-message
+  :default "")
+
+(define-infix-argument magit-gerrit:-score ()
+  :description "Review score"
+  :class 'magit-gerrit--patchset
+  :key "s"
+  :argument "score="
+  :reader 'magit-gerrit--read-score
+  :default "0")
+
 (define-infix-argument magit-gerrit-view:-origin ()
   :description "Compare change to"
   :class 'magit-gerrit--patchset
@@ -779,6 +802,14 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   :argument "patchset="
   :reader 'magit-gerrit--read-patchset
   :default "last")
+
+(defun magit-gerrit--read-message
+    (prompt initial-input history)
+  (completing-read prompt nil nil nil initial-input history))
+
+(defun magit-gerrit--read-score
+    (prompt initial-input history)
+  (completing-read prompt '("-2" "-1" "0" "+1" "+2") nil t initial-input))
 
 (defun magit-gerrit--read-patchset
     (prompt initial-input history &optional include-base)
