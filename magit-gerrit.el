@@ -380,6 +380,8 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   (magit-with-toplevel
     (-let* ((conf (current-window-configuration))
             (file (nth index files))
+            (jobj (magit-gerrit-review-at-point))
+            (changeset (number-to-string (alist-get 'number jobj)))
             (binding-setter
              (lambda ()
                (magit-gerrit--ediff-set-bindings revA revB files index comments-drafts)))
@@ -403,7 +405,23 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
                (-each `((,revA ,commentsA ,bufA)
                         (,revB ,commentsB ,bufB))
                  (-lambda ((revision comments buffer))
-                   (magit-gerrit--add-comments revision comments buffer))))))
+                   (magit-gerrit--add-comments revision comments buffer)))))
+            (propagate-review-alist
+             (lambda ()
+               (-each `((,bufA ,revA)
+                        (,bufB ,revB))
+                 (-lambda ((buffer revision))
+                   (with-current-buffer buffer
+                     ;; we use REVISION (and CHANGESET) to post comments added
+                     ;; in revision's buffer that's why
+                     ;; for the BASE buffer on the left
+                     ;; set revision to the one of the right side
+                     (setq-local magit-gerrit-review-alist
+                                 `((changeset . ,changeset)
+                                   (revision . ,(if (get-text-property 0 'base
+                                                                       revision)
+                                                    (propertize revB 'base 't)
+                                                  revision))))))))))
       (ediff-buffers
        bufA bufB
        `((lambda ()
@@ -413,6 +431,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
               (magit-gerrit--close-ediff)
               (let ((magit-ediff-previous-winconf ,conf))
                 (run-hooks 'magit-ediff-quit-hook)))))
+         ,propagate-review-alist
          ,binding-setter
          ,comments-adder)
        'ediff-revision))))
@@ -578,7 +597,8 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   (-let* (((message score) args)
           (jobj (magit-gerrit-review-at-point))
           (changeset (number-to-string (alist-get 'number jobj)))
-          (revision (number-to-string (alist-get 'number (alist-get 'currentPatchSet jobj))))
+          (revision (number-to-string
+                     (alist-get 'number (alist-get 'currentPatchSet jobj))))
           (url (concat (magit-gerrit--patchset-url changeset revision)
                        "/review"))
           (data `(

@@ -31,11 +31,12 @@
   (let ((url-request-method "GET"))
     (magit-gerrit--request url)))
 
-(defun magit-gerrit--post (url data)
-  "Make a POST request to the URL with the given DATA.
+(defun magit-gerrit--post (url data method)
+  "Make a METHOD request to the URL with the given DATA.
 
-DATA should be an alist."
-  (let ((url-request-method "POST")
+DATA should be an alist
+Supported METHODs are 'PUT' and 'POST'."
+  (let ((url-request-method method)
         (url-request-extra-headers
          '(("Content-Type" . "application/json; charset=UTF-8")))
         (url-request-data (json-encode-alist data)))
@@ -111,6 +112,21 @@ If DRAFTS is not nil treat response as draft comments."
      (cons (symbol-name path)
            (magit-gerrit--parse-file-comments comments drafts)))
    response))
+
+(defun magit-gerrit-post-draft (draft)
+  "Send DRAFT to the gerrit throught the API."
+  (-let* (((&alist 'changeset changeset 'revision revision)
+           magit-gerrit-review-alist)
+          (url (concat (magit-gerrit--patchset-url changeset revision)
+                       "/drafts"))
+          (data `(
+                  ("path" . ,(oref draft file))
+                  ("range" . ,(oref draft range))
+                  ("message" . ,(oref draft message))
+                  ("side" . ,(if (get-text-property 0 'base revision)
+                                 "PARENT"
+                               "REVISION")))))
+    (magit-gerrit--post url data "PUT")))
 
 ;;; _
 (provide 'magit-gerrit-requests)

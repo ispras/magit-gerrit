@@ -332,21 +332,21 @@ if the point is inside the latter."
     (magit-gerrit--pos-to-line-col
      (overlay-start magit-gerrit--active-comment-ov)
      (overlay-end magit-gerrit--active-comment-ov)))
-
    ;; Handle default case
    (t (magit-gerrit--pos-to-line-col (point) (point)))))
 
 (defun magit-gerrit-add-comment ()
   "Add new draft comment for the current region or point."
   (interactive)
-  (magit-gerrit-create-comment-overlays
-   (magit-gerrit--commentinfo
-    :author (alist-get 'name (magit-gerrit--get-account))
-    :date (current-time)
-    :text (read-from-minibuffer "Comment message: ")
-    :file (magit-current-file)
-    :range (magit-gerrit--new-comment-range)
-    :draft t)))
+  (let* ((comment (magit-gerrit--commentinfo
+                   :author (alist-get 'name (magit-gerrit--get-account))
+                   :date (current-time)
+                   :text (read-from-minibuffer "Comment message: ")
+                   :file (magit-current-file)
+                   :range (magit-gerrit--new-comment-range)
+                   :draft t)))
+    (magit-gerrit-post-draft comment)
+    (magit-gerrit-create-comment-overlays comment)))
 ;;; _
 (provide 'magit-gerrit-comment-ui)
 ;;; magit-gerrit-comment-ui.el ends here
