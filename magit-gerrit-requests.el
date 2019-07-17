@@ -39,11 +39,14 @@ Supported METHODs are 'PUT' and 'POST'."
   (let ((url-request-method method)
         (url-request-extra-headers
          '(("Content-Type" . "application/json; charset=UTF-8")))
-        (url-request-data (json-encode-alist data)))
+        (url-request-data
+         ;; Encode data to allow unicode symbols in comment text
+         (encode-coding-string (json-encode-alist data) 'utf-8)))
     (magit-gerrit--request url)))
 
 (defun magit-gerrit--request (url)
-  "Fetch json from the URL into the temporary buffer and return the parsed result."
+  "Fetch json from the URL into the temporary buffer and return the parsed
+result."
   (with-temp-buffer
     (url-insert-file-contents url)
     ;; gerrit API returns 5 special symbols before any response
