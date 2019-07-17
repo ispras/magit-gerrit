@@ -344,14 +344,14 @@ Succeed even if branch already exist
   ;; ...and quit from the current ediff session
   (ediff-cleanup-mess))
 
-(defun magit-gerrit--ediff-set-bindings (revA revB files index comments)
+(defun magit-gerrit--ediff-set-bindings (jobj revA revB files index comments)
   (let* ((goto-index
           (lambda (new-index)
             (magit-gerrit--close-ediff)
             ;; we consider `NEW-INDEX' to be correct and create a new
             ;; ediff session for it
-            (magit-gerrit--ediff-compare revA revB
-                                         files new-index comments)))
+            (magit-gerrit--ediff-compare jobj revA revB files new-index
+                                         comments)))
          ;; this is an actual callback generator that checks index
          ;; boundaries and outputs the given error message if the check
          ;; has failed
@@ -369,7 +369,7 @@ Succeed even if branch already exist
     (define-key ediff-mode-map "P"
       (funcall command (1- index) "There is no previous file"))))
 
-(defun magit-gerrit--ediff-compare (revA revB files index comments-drafts)
+(defun magit-gerrit--ediff-compare (jobj revA revB files index comments-drafts)
   "Compare REVA:FILES[INDEX] with REVB:FILES[INDEX] using Ediff.
 
 FILES have to be relative to the top directory of the
@@ -380,11 +380,11 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   (magit-with-toplevel
     (-let* ((conf (current-window-configuration))
             (file (nth index files))
-            (jobj (magit-gerrit-review-at-point))
             (changeset (number-to-string (alist-get 'number jobj)))
             (binding-setter
              (lambda ()
-               (magit-gerrit--ediff-set-bindings revA revB files index comments-drafts)))
+               (magit-gerrit--ediff-set-bindings jobj revA revB files index
+                                                 comments-drafts)))
             (bufA (magit-find-file revA file))
             (bufB (magit-find-file revB file))
             (get-file-comments
@@ -471,12 +471,13 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
      refs)))
 
 (defun magit-gerrit--view-ediff (compare revision-range)
-  (-let* ((files (magit-changed-files revision-range))
+  (-let* ((jobj (magit-gerrit-review-at-point))
+          (files (magit-changed-files revision-range))
           ((origin . changed) (magit-split-range revision-range))
           (comments (magit-gerrit--fetch-comments origin changed)))
     ;; start with the first file of the patchset
     ;; TODO: change to 'commit message' in the future
-    (funcall compare origin changed files 0 comments)))
+    (funcall compare jobj origin changed files 0 comments)))
 
 (defun magit-gerrit--view-patchset-in-ediff-impl (args compare)
   (magit-gerrit--view-patchset-impl
@@ -488,8 +489,8 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   (magit-gerrit--view-patchset-in-ediff-impl
    args #'magit-gerrit--ediff-compare))
 
-(defun magit-gerrit--resolve (origin changed files index comments)
-  (magit-gerrit--ediff-compare changed "{worktree}" files 0
+(defun magit-gerrit--resolve (jobj origin changed files index comments)
+  (magit-gerrit--ediff-compare jobj changed "{worktree}" files 0
                                ;; dismiss comments for the "right" part
                                ;; as it is a worktree
                                (-replace-at 1 nil comments)))
