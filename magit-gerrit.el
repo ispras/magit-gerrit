@@ -646,7 +646,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 
 (defun magit-gerrit-create-review ()
   (interactive)
-  (magit-gerrit-push-review 'publish))
+  (magit-gerrit-push-review 'for))
 
 (defun magit-gerrit-create-draft ()
   (interactive)
