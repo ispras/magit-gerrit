@@ -416,6 +416,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
                      ;; in revision's buffer that's why
                      ;; for the BASE buffer on the left
                      ;; set revision to the one of the right side
+                     (magit-gerrit-ui-mode t)
                      (setq-local magit-gerrit-review-alist
                                  `((changeset . ,changeset)
                                    (revision . ,(if (get-text-property 0 'base
