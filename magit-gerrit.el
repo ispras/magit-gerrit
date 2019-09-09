@@ -221,14 +221,34 @@ Succeed even if branch already exist
                               (if draft
                                   'magit-signature-bad
                                 'magit-signature-good)))
+
          (authsubjpadding (make-string
                            (max 0 (- wid (+ nlen
                                             1
                                             (length author)
-                                            (length subjstr))))
-                           ? )))
-    (format "%s%s%s%s\n"
-            numstr subjstr authsubjpadding author)))
+                                            (length subjstr)
+                                            insertions-len
+                                            score-len)))
+                           ? ))
+
+         (scores (seq-map (lambda (elem) (string-to-number (alist-get 'value elem))) approvs))
+         (prettify-score
+          (lambda (scores)
+            (if (eq (seq-min scores) -2)
+                (propertize "  " 'face '(magit-bisect-bad bold))
+              (if (eq (seq-max scores) +2)
+                  (propertize "  " 'face '(magit-bisect-good bold))
+                (let ((last-score (car (last scores)))
+                      (format-string "%+3d"))
+                  (cond
+                   ((> last-score 0) (propertize (format format-string last-score) 'face '(magit-bisect-good bold)))
+                   ((< last-score 0) (propertize (format format-string last-score) 'face '(magit-bisect-bad bold)))
+                   (t (propertize " • " 'face '(magit-refname bold)))))))))
+         (score-str (if (eq scores nil)
+                        (propertize " • " 'face '(magit-refname bold))
+                      (funcall prettify-score scores))))
+    (format "%s%s%s%s%s  %s\n"
+            numstr subjstr authsubjpadding author insertions-str score-str)))
 
 (defun magit-gerrit-wash-approval (approval)
   (let* ((approver (cdr-safe (assoc 'by approval)))
@@ -621,8 +641,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
                                               (magit-gerrit-review-at-point)))))
                   "--project"
                   (magit-gerrit-get-project)
-                  "--submit"
-                  args)
+                  "--submit")
   (magit-fetch-from-upstream magit-gerrit-remote ""))
 
 (defun magit-gerrit-push-review (status)
