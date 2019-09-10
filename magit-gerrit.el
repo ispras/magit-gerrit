@@ -535,6 +535,12 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
   (magit-gerrit-download-patchset)
   (magit-gerrit-create-branch-force branch "FETCH_HEAD"))
 
+(defun magit-gerrit-download-and-merge-patchset ()
+  "Download and merge a Gerrit Review Patchset"
+  (interactive)
+  (magit-gerrit-download-patchset)
+  (magit-merge-plain "FETCH_HEAD"))
+
 (defun magit-gerrit-cherry-pick-patchset ()
   "Cherry-pick a Gerrit Review Patchset"
   (interactive)
@@ -755,7 +761,8 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     ("S" "Submit Review" magit-gerrit-submit-review)
     ("B" "Abandon Review" magit-gerrit-abandon-review)
     ("b" "Browse Review" magit-gerrit-browse-review)
-    ("H" "Cherry-pick Patchset" magit-gerrit-cherry-pick-patchset)]]
+    ("H" "Pull Patchset" magit-gerrit-download-and-merge-patchset)
+    ("h" "Cherry-pick Patchset" magit-gerrit-cherry-pick-patchset)]]
   ["Options"
    (magit-gerrit:-message)
    (magit-gerrit:-score)]
