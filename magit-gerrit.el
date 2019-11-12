@@ -416,14 +416,19 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
 (defun magit-gerrit-download-and-checkout-patchset ()
   "Download and checkout a Gerrit Review Patchset"
   (interactive)
-  (magit-gerrit-download-patchset)
-  (magit-gerrit-create-branch-force branch "FETCH_HEAD"))
+  (let ((jobj (magit-gerrit-review-at-point)))
+    (when jobj
+      (let ((branch (format "review/%s/%s"
+                            (cdr (assoc 'username (assoc 'owner jobj)))
+                            (cdr (assoc 'number jobj)))))
+        (magit-gerrit-download-patchset)
+        (magit-gerrit-create-branch-force branch "FETCH_HEAD")))))
 
-(defun magit-gerrit-download-and-merge-patchset ()
-  "Download and merge a Gerrit Review Patchset"
-  (interactive)
-  (magit-gerrit-download-patchset)
-  (magit-merge-plain "FETCH_HEAD"))
+  (defun magit-gerrit-download-and-merge-patchset ()
+    "Download and merge a Gerrit Review Patchset"
+    (interactive)
+    (magit-gerrit-download-patchset)
+    (magit-merge-plain "FETCH_HEAD"))
 
 (defun magit-gerrit-cherry-pick-patchset ()
   "Cherry-pick a Gerrit Review Patchset"
