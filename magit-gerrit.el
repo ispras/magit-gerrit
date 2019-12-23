@@ -760,9 +760,7 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
    ("c" "url only" magit-gerrit-copy-review-url)])
 
 (defun magit-gerrit--set-default-gerrit-bindings (map)
-  (define-key map magit-gerrit-popup-prefix 'magit-gerrit)
-  (define-key map magit-gerrit-jump-to-reviews-key
-    'magit-gerrit-jump-to-reviews))
+  (define-key map magit-gerrit-popup-prefix 'magit-gerrit))
 
 (defvar magit-gerrit-mode-map
   (let ((map (make-sparse-keymap)))
@@ -788,7 +786,12 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     (add-hook 'magit-remote-update-command-hook
               'magit-gerrit-remote-update nil t)
     (add-hook 'magit-push-command-hook
-              'magit-gerrit-push nil t))
+              'magit-gerrit-push nil t)
+    (transient-insert-suffix
+      'magit-status-jump
+      "z "
+      '("r " "Reviews" magit-gerrit-jump-to-reviews
+        :if (lambda () (memq 'magit-insert-gerrit-reviews magit-status-sections-hook)))))
 
    (t
     (remove-hook 'magit-after-insert-stashes-hook
@@ -799,7 +802,9 @@ It is a tweaked copy-paste of `MAGIT-EDIFF-COMPARE'."
     (remove-hook 'magit-remote-update-command-hook
                  'magit-gerrit-remote-update t)
     (remove-hook 'magit-push-command-hook
-                 'magit-gerrit-push t)))
+                 'magit-gerrit-push t)
+    (transient-remove-suffix 'magit-status-jump "r "))
+   )
   (when (called-interactively-p 'any)
     (magit-refresh)))
 
